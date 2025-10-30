@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>SMA Alerts</title>
+    <link rel="icon" type="image/svg+xml" href="../icon.svg">
+    <link rel="apple-touch-icon" href="../icon.svg">
+    <style>
+        :root {
+            /* Default Light Theme */
+            --bg-primary: #f8f9fa;
+            --bg-secondary: #ffffff;
+            --bg-accent: #e9ecef;
+            --text-primary: #212529;
+            --text-secondary: #6c757d;
+            --text-muted: #adb5bd;
+            --border-color: #dee2e6;
+            --shadow: 0 2px 10px rgba(0,0,0,0.1);
+            --shadow-hover: 0 4px 20px rgba(0,0,0,0.15);
+            --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --gradient-success: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            --gradient-danger: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
+            --gradient-warning: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            --gradient-info: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 10px;
+            padding-top: calc(10px + env(safe-area-inset-top));
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            transition: all 0.3s ease;
+            min-height: 100vh;
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            body {
+                padding: 5px;
+                padding-top: calc(5px + env(safe-area-inset-top));
+            }
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 2px;
+                padding-top: calc(2px + env(safe-area-inset-top));
+            }
+        }
+        .container {
+            background: var(--bg-secondary);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border-color);
+            transition: all 0.3s ease;
+        }
+
+        .container:hover {
+            box-shadow: var(--shadow-hover);
+            transform: translateY(-1px);
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+                border-radius: 12px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 10px;
+                border-radius: 10px;
+            }
+        }
+
+        h1 {
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-align: center;
+            margin-top: 10px;
+            margin-bottom: 20px;
+            font-size: 1.8rem;
+            font-weight: 700;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 1.5rem;
+                margin-bottom: 15px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 1.3rem;
+                margin-bottom: 10px;
+            }
+        }
+
+
+        .settings {
+            background: var(--bg-accent);
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            border: 1px solid var(--border-color);
+        }
+
+        @media (max-width: 768px) {
+            .settings {
+                padding: 12px;
+                margin-bottom: 12px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .settings {
+                padding: 10px;
+                margin-bottom: 10px;
+            }
+        }
+
+        .setting-group {
+            margin-bottom: 12px;
+        }
+
+        @media (max-width: 768px) {
+            .setting-group {
+                margin-bottom: 10px;
+            }
+        }
+
+        label {
+            display: inline-block;
+            width: 180px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 3px;
+            font-size: 14px;
+        }
+
+        @media (max-width: 768px) {
+            label {
+                width: 150px;
+                font-size: 13px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            label {
+                width: 120px;
+                font-size: 12px;
+            }
+        }
+
+        input[type="number"], input[type="text"], input[type="password"], select {
+            width: 180px;
+            padding: 8px 12px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 13px;
+            transition: all 0.3s ease;
+        }
+
+        @media (max-width: 768px) {
+            input[type="number"], input[type="text"], input[type="password"], select {
+                width: 150px;
+                padding: 6px 10px;
+                font-size: 12px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            input[type="number"], input[type="text"], input[type="password"], select {
+                width: 120px;
+                padding: 5px 8px;
+                font-size: 11px;
+            }
+        }
+
+        input[type="number"]:focus, input[type="text"]:focus, input[type="password"]:focus, select:focus {
+            outline: none;
+            border-color: var(--text-secondary);
+            box-shadow: 0 0 0 3px rgba(0,0,0,0.1);
+            transform: translateY(-1px);
+        }
+
+        button {
+            background: var(--gradient-primary);
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            box-shadow: var(--shadow);
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        @media (max-width: 768px) {
+            button {
+                padding: 8px 16px;
+                font-size: 13px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            button {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-hover);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+        .data-section {
+            margin-top: 15px;
+        }
+
+        .data-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 15px;
+            margin-bottom: 8px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+
+        @media (max-width: 768px) {
+            .data-item {
+                padding: 8px 12px;
+                margin-bottom: 6px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .data-item {
+                padding: 6px 10px;
+                margin-bottom: 5px;
+            }
+        }
+
+        .data-item:hover {
+            transform: translateX(5px);
+            box-shadow: var(--shadow);
+        }
+
+        .data-label {
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+
+        .data-value {
+            color: var(--text-secondary);
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        @media (max-width: 768px) {
+            .data-label, .data-value {
+                font-size: 13px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .data-label, .data-value {
+                font-size: 12px;
+            }
+        }
+        .signal {
+            text-align: center;
+            padding: 14px;
+            margin: 10px 0;
+            border-radius: 15px;
+            font-size: 18px;
+            font-weight: 700;
+            box-shadow: var(--shadow);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        @media (max-width: 768px) {
+            .signal {
+                padding: 12px;
+                margin: 8px 0;
+                font-size: 16px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .signal {
+                padding: 10px;
+                margin: 6px 0;
+                font-size: 14px;
+            }
+        }
+
+        .signal::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .signal:hover::before {
+            left: 100%;
+        }
+
+        .signal.buy {
+            background: var(--gradient-success);
+            color: white;
+            border: none;
+            animation: pulse 2s infinite;
+        }
+
+        .signal.sell {
+            background: var(--gradient-danger);
+            color: white;
+            border: none;
+            animation: shake 0.5s ease-in-out;
+        }
+
+        .signal.hold {
+            background: var(--gradient-warning);
+            color: white;
+            border: none;
+        }
+
+        .signal.sell-80 {
+            background: var(--gradient-danger);
+            color: white;
+            border: none;
+            animation: pulse 1.5s infinite;
+        }
+
+        .signal.sell-all {
+            background: var(--gradient-danger);
+            color: white;
+            border: none;
+            animation: shake 0.8s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        .loading {
+            text-align: center;
+            color: var(--text-secondary);
+            font-style: italic;
+            font-size: 14px;
+            padding: 15px;
+            background: var(--bg-accent);
+            border-radius: 12px;
+            margin: 15px 0;
+        }
+
+        .error {
+            background: var(--gradient-danger);
+            color: white;
+            padding: 15px;
+            border-radius: 12px;
+            margin: 15px 0;
+            font-weight: 600;
+            box-shadow: var(--shadow);
+            animation: shake 0.5s ease-in-out;
+            font-size: 14px;
+        }
+
+        @media (max-width: 768px) {
+            .loading, .error {
+                font-size: 13px;
+                padding: 12px;
+                margin: 12px 0;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .loading, .error {
+                font-size: 12px;
+                padding: 10px;
+                margin: 10px 0;
+            }
+        }
+
+        small {
+            color: var(--text-muted);
+            font-size: 11px;
+        }
+
+        @media (max-width: 768px) {
+            small {
+                font-size: 10px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            small {
+                font-size: 9px;
+            }
+        }
+
+        /* Additional responsive improvements */
+        @media (max-width: 768px) {
+            .setting-group {
+                display: flex;
+                flex-direction: column;
+                gap: 5px;
+            }
+            
+            label {
+                width: 100%;
+                margin-bottom: 2px;
+            }
+            
+            input[type="number"], input[type="text"], input[type="password"], select {
+                width: 100%;
+                max-width: 250px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .data-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 5px;
+            }
+            
+            .data-value {
+                align-self: flex-end;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1 id="pageTitle" style="margin-top: 10px;">SMA Signal Strategy</h1>
+        
+        <div class="settings">
+            <h3 style="font-size: 14px; margin-bottom: 8px;">Configuration</h3>
+            <div class="setting-group">
+                <label for="indexSelect">Index to Track:</label>
+                <select id="indexSelect" onchange="updateIndexLabels()" style="width: 200px; padding: 5px; border: 1px solid #ddd; border-radius: 3px;">
+                    <option value="SPY">S&P 500 (SPY)</option>
+                    <option value="QQQM">NASDAQ (QQQM)</option>
+                </select>
+            </div>
+            <div class="setting-group">
+                <label for="buyThreshold">Buy Signal (% above SMA):</label>
+                <input type="number" id="buyThreshold" value="4" step="0.1" min="0" max="100">
+            </div>
+            <div class="setting-group">
+                <label for="sellThreshold">Sell Signal (% below SMA):</label>
+                <input type="number" id="sellThreshold" value="3" step="0.1" min="0" max="100">
+            </div>
+            <div class="setting-group">
+                <label for="smaPeriod">SMA Period (days):</label>
+                <input type="number" id="smaPeriod" onchange="updateIndexLabels()" value="200" step="1" min="1" max="500">
+            </div>
+            <div class="setting-group">
+                <label>Notifications:</label>
+                <div style="display:flex; flex-direction:column; gap:6px;">
+                    <label style="width:auto; font-weight:500;"><input type="checkbox" id="notifEnabled" checked> Enable notifications</label>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <label for="notifTime" style="width:auto;">Notification time (your timezone):</label>
+                        <input type="time" id="notifTime">
+                    </div>
+                </div>
+            </div>
+            <div class="setting-group">
+                <label for="apiKey">Alpha Vantage API Key:</label>
+                <input type="password" id="apiKey" placeholder="Enter your API key" style="width: 300px;">
+                <small style="display: block; color: #666; margin-top: 5px;">
+                    Get your free API key from <a href="https://www.alphavantage.co/support/#api-key" target="_blank" style="color: var(--text-secondary); text-decoration: underline;">Alpha Vantage</a>
+                </small>
+            </div>
+            <button onclick="fetchData()">Generate Signal</button>
+        </div>
+
+        <div class="data-section">
+            <h3 style="font-size: 14px; margin-bottom: 8px;">Current Data</h3>
+            <div id="loading" class="loading" style="display: none;">Loading data...</div>
+            <div id="error" class="error" style="display: none;"></div>
+            
+            <div id="dataDisplay" style="display: none;">
+            <div class="data-item">
+                <span class="data-label" id="indexLabel">SPY Current Level:</span>
+                <span class="data-value" id="currentLevel">-</span>
+            </div>
+                <div class="data-item">
+                    <span class="data-label" id="smaLabel">200-Day SMA:</span>
+                    <span class="data-value" id="smaValue">-</span>
+                </div>
+                <div class="data-item">
+                    <span class="data-label">Difference from SMA:</span>
+                    <span class="data-value" id="difference">-</span>
+                </div>
+                <div class="data-item">
+                    <span class="data-label">Percentage from SMA:</span>
+                    <span class="data-value" id="percentage">-</span>
+                </div>
+            </div>
+
+            <div id="tradingSignal" class="signal" style="display: none;">
+                <div id="signalText">-</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Simple obfuscation functions
+        function obfuscateKey(key) {
+            return btoa(key.split('').reverse().join(''));
+        }
+
+        function deobfuscateKey(obfuscatedKey) {
+            try {
+                return atob(obfuscatedKey).split('').reverse().join('');
+            } catch (e) {
+                return '';
+            }
+        }
+
+        // Cookie management functions
+        function setCookie(name, value, days = 365) {
+            const expires = new Date();
+            expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
+            // Remove secure flag for local file access and use more permissive settings
+            document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/`;
+        }
+
+        function getCookie(name) {
+            const nameEQ = name + "=";
+            const ca = document.cookie.split(';');
+            for (let i = 0; i < ca.length; i++) {
+                let c = ca[i];
+                while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+                if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+            }
+            return null;
+        }
+
+        function deleteCookie(name) {
+            document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;`;
+        }
+
+        // Index configuration
+        const indexConfig = {
+            'SPY': {
+                symbol: 'SPY',
+                name: 'S&P 500',
+                fullName: 'S&P 500 (SPY)'
+            },
+            'QQQM': {
+                symbol: 'QQQM',
+                name: 'NASDAQ',
+                fullName: 'NASDAQ (QQQM)'
+            }
+        };
+
+        // Update UI labels based on selected index
+        function updateIndexLabels() {
+            const selectedIndex = document.getElementById('indexSelect').value;
+            const config = indexConfig[selectedIndex];
+            const smaPeriod = document.getElementById('smaPeriod').value;
+            
+            document.getElementById('pageTitle').textContent = 'SMA Signal Strategy';
+            document.getElementById('indexLabel').textContent = `${config.name} Current Level:`;
+            document.getElementById('smaLabel').textContent = `${smaPeriod}-Day SMA:`;
+        }
+
+        // Get default notification time (30 min before NYSE close = 3:30 PM EST/EDT in user's timezone)
+        function getDefaultNotificationTime() {
+            // Create a date representing 3:30 PM in NY timezone
+            const now = new Date();
+            const nyDateStr = now.toLocaleString("en-US", {timeZone: "America/New_York"});
+            const nyDateParts = new Date(nyDateStr);
+            
+            // Create a date for 3:30 PM in NY timezone
+            const year = nyDateParts.getFullYear();
+            const monthNum = nyDateParts.getMonth();
+            const month = String(monthNum + 1).padStart(2, '0');
+            const day = String(nyDateParts.getDate()).padStart(2, '0');
+            
+            // Create a date that represents 3:30 PM in NY timezone
+            // Use JavaScript's built-in timezone handling for DST
+            const nyTime = new Date(`${year}-${month}-${day}T15:30:00`);
+            
+            // Get the timezone offset for NY on this specific date
+            // Determine if NY is in DST by checking the month (simplified approach)
+            const isDST = monthNum >= 2 && monthNum <= 10; // DST roughly March-November
+            const offsetHours = isDST ? 4 : 5; // EDT is UTC-4, EST is UTC-5
+            
+            // Create ISO string with correct offset
+            const nyTimeISO = `${year}-${month}-${day}T15:30:00-0${offsetHours}:00`;
+            
+            // Parse this to get user's local time
+            const userTime = new Date(nyTimeISO);
+            
+            const hh = String(userTime.getHours()).padStart(2, '0');
+            const mm = String(userTime.getMinutes()).padStart(2, '0');
+            return `${hh}:${mm}`;
+        }
+
+        // Load saved settings from localStorage and cookies
+        function loadSettings() {
+            const buyThreshold = localStorage.getItem('buyThreshold');
+            const sellThreshold = localStorage.getItem('sellThreshold');
+            const selectedIndex = localStorage.getItem('selectedIndex');
+            const smaPeriod = localStorage.getItem('smaPeriod');
+            // Notification settings
+            const notifEnabled = localStorage.getItem('notifEnabled');
+            const notifHour = localStorage.getItem('notifHour');
+            const notifMinute = localStorage.getItem('notifMinute');
+            
+            // Try to get API key from cookies first, then localStorage as fallback
+            let obfuscatedApiKey = getCookie('apiKey');
+            if (!obfuscatedApiKey) {
+                obfuscatedApiKey = localStorage.getItem('apiKey');
+            }
+            
+            if (buyThreshold) document.getElementById('buyThreshold').value = buyThreshold;
+            if (sellThreshold) document.getElementById('sellThreshold').value = sellThreshold;
+            if (selectedIndex) document.getElementById('indexSelect').value = selectedIndex;
+            if (smaPeriod) document.getElementById('smaPeriod').value = smaPeriod;
+            // Apply notification settings with defaults
+            document.getElementById('notifEnabled').checked = notifEnabled ? notifEnabled === 'true' : true;
+            
+            // Use saved time or default to 30 min before NYSE close in user's timezone
+            let timeValue;
+            if (notifHour && notifMinute) {
+                const hh = String(notifHour).padStart(2, '0');
+                const mm = String(notifMinute).padStart(2, '0');
+                timeValue = `${hh}:${mm}`;
+            } else {
+                timeValue = getDefaultNotificationTime();
+            }
+            document.getElementById('notifTime').value = timeValue;
+            
+            if (obfuscatedApiKey) {
+                const apiKey = deobfuscateKey(obfuscatedApiKey);
+                document.getElementById('apiKey').value = apiKey;
+            }
+            
+            updateIndexLabels();
+        }
+
+        // Save settings to localStorage and cookies
+        function saveSettings() {
+            localStorage.setItem('buyThreshold', document.getElementById('buyThreshold').value);
+            localStorage.setItem('sellThreshold', document.getElementById('sellThreshold').value);
+            localStorage.setItem('selectedIndex', document.getElementById('indexSelect').value);
+            localStorage.setItem('smaPeriod', document.getElementById('smaPeriod').value);
+            // Save notification settings
+            localStorage.setItem('notifEnabled', document.getElementById('notifEnabled').checked.toString());
+            const timeVal = document.getElementById('notifTime').value || '15:30';
+            const [hStr, mStr] = timeVal.split(':');
+            localStorage.setItem('notifHour', String(parseInt(hStr || '15', 10)));
+            localStorage.setItem('notifMinute', String(parseInt(mStr || '30', 10)));
+            
+            const apiKey = document.getElementById('apiKey').value;
+            if (apiKey) {
+                const obfuscatedKey = obfuscateKey(apiKey);
+                // Save to both cookies and localStorage for reliability
+                setCookie('apiKey', obfuscatedKey);
+                localStorage.setItem('apiKey', obfuscatedKey);
+            } else {
+                deleteCookie('apiKey');
+                localStorage.removeItem('apiKey');
+            }
+        }
+
+        // Calculate SMA from daily data
+        function calculateSMA(data, period) {
+            const values = Object.values(data).map(entry => parseFloat(entry['4. close']));
+            if (values.length < period) {
+                throw new Error(`Not enough data points for ${period}-day SMA calculation`);
+            }
+            
+            const lastPeriodValues = values.slice(0, period);
+            const sum = lastPeriodValues.reduce((acc, val) => acc + val, 0);
+            return sum / period;
+        }
+
+        // Determine trading signal based on strategy
+        function determineSignal(currentPrice, sma, buyThreshold, sellThreshold) {
+            const percentage = ((currentPrice - sma) / sma) * 100;
+            
+            if (percentage >= 40) {
+                return { signal: 'SELL ALL', class: 'sell-all', percentage: percentage };
+            } else if (percentage >= 30) {
+                return { signal: 'SELL 80%', class: 'sell-80', percentage: percentage };
+            } else if (percentage >= buyThreshold) {
+                return { signal: 'BUY', class: 'buy', percentage: percentage };
+            } else if (percentage <= -sellThreshold) {
+                return { signal: 'SELL', class: 'sell', percentage: percentage };
+            } else {
+                return { signal: 'HOLD', class: 'hold', percentage: percentage };
+            }
+        }
+
+        // Fetch data from Alpha Vantage API
+        async function fetchData() {
+            const apiKey = document.getElementById('apiKey').value;
+            if (!apiKey) {
+                showError('Please enter your Alpha Vantage API key');
+                return;
+            }
+
+            saveSettings();
+            showLoading();
+
+            try {
+                // Get selected index symbol
+                const selectedIndex = document.getElementById('indexSelect').value;
+                const config = indexConfig[selectedIndex];
+                
+                // Fetch index data
+                const response = await fetch(`https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${config.symbol}&apikey=${apiKey}&outputsize=full`);
+                const data = await response.json();
+
+                if (data['Error Message']) {
+                    throw new Error(data['Error Message']);
+                }
+
+                if (data['Note']) {
+                    throw new Error('API call frequency limit reached. Please try again later.');
+                }
+
+                const timeSeries = data['Time Series (Daily)'];
+                if (!timeSeries) {
+                    throw new Error('No data received from API');
+                }
+
+                // Get current price (most recent trading day)
+                const dates = Object.keys(timeSeries).sort().reverse();
+                const currentData = timeSeries[dates[0]];
+                const currentPrice = parseFloat(currentData['4. close']);
+
+                // Get SMA period and calculate SMA
+                const smaPeriod = parseInt(document.getElementById('smaPeriod').value);
+                const sma = calculateSMA(timeSeries, smaPeriod);
+
+                // Get thresholds
+                const buyThreshold = parseFloat(document.getElementById('buyThreshold').value);
+                const sellThreshold = parseFloat(document.getElementById('sellThreshold').value);
+
+                // Determine signal
+                const signalData = determineSignal(currentPrice, sma, buyThreshold, sellThreshold);
+
+                // Display data
+                displayData(currentPrice, sma, signalData);
+
+            } catch (error) {
+                showError('Error fetching data: ' + error.message);
+            }
+        }
+
+        // Display the fetched data
+        function displayData(currentPrice, sma, signalData) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('error').style.display = 'none';
+            document.getElementById('dataDisplay').style.display = 'block';
+            document.getElementById('tradingSignal').style.display = 'block';
+
+            // Update data display
+            document.getElementById('currentLevel').textContent = currentPrice.toFixed(2);
+            document.getElementById('smaValue').textContent = sma.toFixed(2);
+            document.getElementById('difference').textContent = (currentPrice - sma).toFixed(2);
+            document.getElementById('percentage').textContent = signalData.percentage.toFixed(2) + '%';
+
+            // Update signal display
+            const signalElement = document.getElementById('tradingSignal');
+            const signalText = document.getElementById('signalText');
+            
+            signalText.textContent = signalData.signal;
+            signalElement.className = 'signal ' + signalData.class;
+        }
+
+        // Show loading state
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('error').style.display = 'none';
+            document.getElementById('dataDisplay').style.display = 'none';
+            document.getElementById('tradingSignal').style.display = 'none';
+        }
+
+        // Show error message
+        function showError(message) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('error').style.display = 'block';
+            document.getElementById('error').textContent = message;
+            document.getElementById('dataDisplay').style.display = 'none';
+            document.getElementById('tradingSignal').style.display = 'none';
+        }
+
+
+        // Auto-fetch data if API key is available
+        function autoFetchIfReady() {
+            const apiKey = document.getElementById('apiKey').value;
+            if (apiKey && apiKey.trim() !== '') {
+                // Small delay to ensure UI is fully loaded
+                setTimeout(() => {
+                    fetchData();
+                }, 500);
+            }
+        }
+
+
+        // Initialize the page
+        window.onload = function() {
+            loadSettings();
+            autoFetchIfReady();
+        };
+
+    </script>
+</body>
+</html>

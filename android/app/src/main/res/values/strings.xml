@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SMA Alerts</string>
+    <string name="title_activity_main">SMA Alerts</string>
+    <string name="package_name">com.kulkarnih.smaalerts</string>
+    <string name="custom_url_scheme">com.kulkarnih.smaalerts</string>
+</resources>

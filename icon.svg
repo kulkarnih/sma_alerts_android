@@ -1,0 +1,75 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle with gradient -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="chartGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4facfe;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#00f2fe;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="signalGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#43e97b;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#38f9d7;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="240" fill="url(#bgGradient)" stroke="#fff" stroke-width="8"/>
+  
+  <!-- Chart/Graph background -->
+  <rect x="80" y="180" width="352" height="120" fill="rgba(255,255,255,0.1)" rx="8"/>
+  
+  <!-- Moving Average Line (SMA) -->
+  <path d="M 100 280 Q 150 270 200 275 T 300 270 T 400 275 T 412 280" 
+        stroke="url(#chartGradient)" 
+        stroke-width="4" 
+        fill="none" 
+        stroke-linecap="round"/>
+  
+  <!-- Price Line -->
+  <path d="M 100 290 Q 150 250 200 260 T 300 240 T 400 250 T 412 245" 
+        stroke="#fff" 
+        stroke-width="3" 
+        fill="none" 
+        stroke-linecap="round"/>
+  
+  <!-- Signal Arrow (pointing up for BUY signal) -->
+  <path d="M 256 120 L 240 150 L 272 150 Z" 
+        fill="url(#signalGradient)"/>
+  
+  <!-- Signal Line -->
+  <line x1="256" y1="150" x2="256" y2="180" 
+        stroke="url(#signalGradient)" 
+        stroke-width="3" 
+        stroke-linecap="round"/>
+  
+  <!-- Chart dots for key points -->
+  <circle cx="200" cy="275" r="4" fill="url(#chartGradient)"/>
+  <circle cx="300" cy="270" r="4" fill="url(#chartGradient)"/>
+  <circle cx="200" cy="260" r="4" fill="#fff"/>
+  <circle cx="300" cy="240" r="4" fill="#fff"/>
+  
+  <!-- "SMA" text -->
+  <text x="256" y="350" 
+        font-family="Arial, sans-serif" 
+        font-size="24" 
+        font-weight="bold" 
+        text-anchor="middle" 
+        fill="#fff">SMA</text>
+  
+  <!-- "ALERTS" text -->
+  <text x="256" y="380" 
+        font-family="Arial, sans-serif" 
+        font-size="18" 
+        font-weight="normal" 
+        text-anchor="middle" 
+        fill="rgba(255,255,255,0.8)">ALERTS</text>
+  
+  <!-- Decorative elements -->
+  <circle cx="120" cy="120" r="3" fill="rgba(255,255,255,0.3)"/>
+  <circle cx="392" cy="120" r="3" fill="rgba(255,255,255,0.3)"/>
+  <circle cx="120" cy="392" r="3" fill="rgba(255,255,255,0.3)"/>
+  <circle cx="392" cy="392" r="3" fill="rgba(255,255,255,0.3)"/>
+</svg>

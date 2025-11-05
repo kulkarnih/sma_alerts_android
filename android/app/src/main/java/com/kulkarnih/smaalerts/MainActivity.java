@@ -34,8 +34,8 @@ public class MainActivity extends BridgeActivity {
                 captureKey("sellThreshold", PrefsHelper.KEY_SELL);
                 captureKey("selectedIndex", PrefsHelper.KEY_INDEX);
                 captureKey("smaPeriod", PrefsHelper.KEY_SMA);
-                // Notification master toggle
-                captureBool("notifEnabled", PrefsHelper.KEY_NOTIF_ENABLED);
+                // Notification frequency (new dropdown-based system)
+                captureKey("notifFrequency", PrefsHelper.KEY_NOTIF_FREQUENCY);
                 // Notification time (stored as hour/min separate values)
                 evalJS("localStorage.getItem('notifHour')", val -> {
                     try { PrefsHelper.putInt(this, PrefsHelper.KEY_NOTIF_HOUR, Integer.parseInt(trimQuotes(val))); } catch (Exception ignored) {}
@@ -76,16 +76,6 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
-    private void captureBool(String localKey, String prefKey) {
-        evalJS("localStorage.getItem('" + localKey + "')", val -> {
-            if (val != null) {
-                String clean = trimQuotes(val);
-                // localStorage stores as string; treat 'true' as true
-                boolean b = "true".equalsIgnoreCase(clean);
-                PrefsHelper.putBoolean(this, prefKey, b);
-            }
-        });
-    }
 
     private static String trimQuotes(String s) {
         if (s == null) return "";

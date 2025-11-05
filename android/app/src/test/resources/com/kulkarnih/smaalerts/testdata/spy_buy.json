@@ -1,0 +1,17 @@
+{
+  "Time Series (Daily)": {
+    "2024-01-15": {"1. open": "100.00", "2. high": "105.00", "3. low": "99.00", "4. close": "104.00", "5. volume": "1000000"},
+    "2024-01-14": {"1. open": "100.00", "2. high": "105.00", "3. low": "99.00", "4. close": "100.00", "5. volume": "1000000"},
+    "2024-01-13": {"1. open": "100.00", "2. high": "105.00", "3. low": "99.00", "4. close": "100.00", "5. volume": "1000000"},
+    "2024-01-12": {"1. open": "100.00", "2. high": "105.00", "3. low": "99.00", "4. close": "100.00", "5. volume": "1000000"},
+    "2024-01-11": {"1. open": "100.00", "2. high": "105.00", "3. low": "99.00", "4. close": "100.00", "5. volume": "1000000"}
+  },
+  "Meta Data": {
+    "1. Information": "Daily Prices (open, high, low, close) and Volumes",
+    "2. Symbol": "SPY",
+    "3. Last Refreshed": "2024-01-15",
+    "4. Output Size": "Full size",
+    "5. Time Zone": "US/Eastern"
+  }
+}
+

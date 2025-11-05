@@ -20,6 +20,12 @@ public final class NetworkHelper {
     private NetworkHelper() {}
 
     public static JSONObject fetchWithRetry(String urlStr) {
+        // Handle null or empty URLs early
+        if (urlStr == null || urlStr.trim().isEmpty()) {
+            Log.w(TAG, "Invalid URL: null or empty");
+            return null;
+        }
+        
         Exception lastException = null;
         
         for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {

@@ -478,7 +478,7 @@
             <h3 style="font-size: 14px; margin-bottom: 8px;">Configuration</h3>
             <div class="setting-group">
                 <label for="indexSelect">Index to Track:</label>
-                <select id="indexSelect" onchange="updateIndexLabels()" style="width: 200px; padding: 5px; border: 1px solid #ddd; border-radius: 3px;">
+                <select id="indexSelect" onchange="onIndexChange()" style="width: 200px; padding: 5px; border: 1px solid #ddd; border-radius: 3px;">
                     <option value="SPY">S&P 500 (SPY)</option>
                     <option value="QQQM">NASDAQ (QQQM)</option>
                 </select>
@@ -498,7 +498,14 @@
             <div class="setting-group">
                 <label>Notifications:</label>
                 <div style="display:flex; flex-direction:column; gap:6px;">
-                    <label style="width:auto; font-weight:500;"><input type="checkbox" id="notifEnabled" checked> Enable notifications</label>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <label for="notifFrequency" style="width:auto;">Notification frequency:</label>
+                        <select id="notifFrequency" style="flex:1;">
+                            <option value="disabled">Disabled</option>
+                            <option value="on_change" selected>Only on signal change</option>
+                            <option value="daily">Daily (always)</option>
+                        </select>
+                    </div>
                     <div style="display:flex; align-items:center; gap:10px;">
                         <label for="notifTime" style="width:auto;">Notification time (your timezone):</label>
                         <input type="time" id="notifTime">
@@ -607,6 +614,17 @@
             document.getElementById('smaLabel').textContent = `${smaPeriod}-Day SMA:`;
         }
 
+        // Handle index change - update labels and auto-generate signal
+        function onIndexChange() {
+            updateIndexLabels();
+            saveSettings();
+            // Auto-generate signal if API key is available
+            const apiKey = document.getElementById('apiKey').value;
+            if (apiKey && apiKey.trim() !== '') {
+                fetchData();
+            }
+        }
+
         // Get default notification time (30 min before NYSE close = 3:30 PM EST/EDT in user's timezone)
         function getDefaultNotificationTime() {
             // Create a date representing 3:30 PM in NY timezone
@@ -647,7 +665,7 @@
             const selectedIndex = localStorage.getItem('selectedIndex');
             const smaPeriod = localStorage.getItem('smaPeriod');
             // Notification settings
-            const notifEnabled = localStorage.getItem('notifEnabled');
+            const notifFrequency = localStorage.getItem('notifFrequency');
             const notifHour = localStorage.getItem('notifHour');
             const notifMinute = localStorage.getItem('notifMinute');
             
@@ -662,7 +680,15 @@
             if (selectedIndex) document.getElementById('indexSelect').value = selectedIndex;
             if (smaPeriod) document.getElementById('smaPeriod').value = smaPeriod;
             // Apply notification settings with defaults
-            document.getElementById('notifEnabled').checked = notifEnabled ? notifEnabled === 'true' : true;
+            // Migrate old notifEnabled to new frequency system for backward compatibility
+            const oldNotifEnabled = localStorage.getItem('notifEnabled');
+            if (notifFrequency) {
+                document.getElementById('notifFrequency').value = notifFrequency;
+            } else if (oldNotifEnabled === 'false') {
+                document.getElementById('notifFrequency').value = 'disabled';
+            } else {
+                document.getElementById('notifFrequency').value = 'on_change'; // default
+            }
             
             // Use saved time or default to 30 min before NYSE close in user's timezone
             let timeValue;
@@ -690,7 +716,7 @@
             localStorage.setItem('selectedIndex', document.getElementById('indexSelect').value);
             localStorage.setItem('smaPeriod', document.getElementById('smaPeriod').value);
             // Save notification settings
-            localStorage.setItem('notifEnabled', document.getElementById('notifEnabled').checked.toString());
+            localStorage.setItem('notifFrequency', document.getElementById('notifFrequency').value);
             const timeVal = document.getElementById('notifTime').value || '15:30';
             const [hStr, mStr] = timeVal.split(':');
             localStorage.setItem('notifHour', String(parseInt(hStr || '15', 10)));

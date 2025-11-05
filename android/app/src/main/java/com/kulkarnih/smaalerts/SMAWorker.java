@@ -42,8 +42,12 @@ public class SMAWorker extends Worker {
 
             if (apiKey == null || apiKey.isEmpty()) {
                 Log.w(TAG, "API key missing, skipping analysis");
-                NotificationHelper.createChannels(getApplicationContext());
-                NotificationHelper.notifySignal(getApplicationContext(), "SMA Alerts", "API key missing. Open the app to set it.");
+                String notifFrequency = PrefsHelper.getString(getApplicationContext(), PrefsHelper.KEY_NOTIF_FREQUENCY, "on_change");
+                // Only notify about missing API key if notifications are not disabled
+                if (!"disabled".equals(notifFrequency)) {
+                    NotificationHelper.createChannels(getApplicationContext());
+                    NotificationHelper.notifySignal(getApplicationContext(), "SMA Alerts", "API key missing. Open the app to set it.");
+                }
                 WorkScheduler.scheduleDailyAnalysis(getApplicationContext());
                 return Result.success();
             }
@@ -63,8 +67,12 @@ public class SMAWorker extends Worker {
             if (json.has("Error Message")) {
                 String error = json.getString("Error Message");
                 Log.e(TAG, "API Error: " + error);
-                NotificationHelper.createChannels(getApplicationContext());
-                NotificationHelper.notifySignal(getApplicationContext(), "SMA Alerts", "API Error: " + error);
+                String notifFrequency = PrefsHelper.getString(getApplicationContext(), PrefsHelper.KEY_NOTIF_FREQUENCY, "on_change");
+                // Only notify about API errors if notifications are not disabled
+                if (!"disabled".equals(notifFrequency)) {
+                    NotificationHelper.createChannels(getApplicationContext());
+                    NotificationHelper.notifySignal(getApplicationContext(), "SMA Alerts", "API Error: " + error);
+                }
                 WorkScheduler.scheduleDailyAnalysis(getApplicationContext());
                 return Result.success(); // Don't retry on API errors
             }
@@ -105,24 +113,38 @@ public class SMAWorker extends Worker {
             // Compare with yesterday
             String lastSignal = PrefsHelper.getString(getApplicationContext(), PrefsHelper.KEY_LAST_SIGNAL, "");
             String lastDate = PrefsHelper.getString(getApplicationContext(), PrefsHelper.KEY_LAST_DATE, "");
+            String notifFrequency = PrefsHelper.getString(getApplicationContext(), PrefsHelper.KEY_NOTIF_FREQUENCY, "on_change");
 
             Log.d(TAG, "Current signal: " + signal + " (%.2f%%)".formatted(pct));
             Log.d(TAG, "Last signal: " + lastSignal + " on " + lastDate);
+            Log.d(TAG, "Notification frequency: " + notifFrequency);
 
-            if (!signal.equals(lastSignal)) {
-                // Respect notification toggles
-                boolean master = PrefsHelper.getBoolean(getApplicationContext(), PrefsHelper.KEY_NOTIF_ENABLED, true);
-                boolean allow = master && isSignalEnabled(signal);
-                if (allow) {
-                    NotificationHelper.createChannels(getApplicationContext());
-                    String msg = String.format(Locale.US, "Signal changed to %s (%.2f%% vs SMA)", signal, pct);
-                    NotificationHelper.notifySignal(getApplicationContext(), "SMA Alerts", msg);
-                    Log.i(TAG, "Signal change notification sent: " + lastSignal + " -> " + signal);
+            boolean shouldNotify = false;
+            
+            if ("disabled".equals(notifFrequency)) {
+                Log.d(TAG, "Notifications disabled, skipping notification");
+            } else if ("daily".equals(notifFrequency)) {
+                // Send notification every day regardless of signal change
+                shouldNotify = true;
+                Log.d(TAG, "Daily notification mode: sending notification");
+            } else if ("on_change".equals(notifFrequency)) {
+                // Only send notification when signal changes (default behavior)
+                // On first run (empty lastSignal), don't notify (no change detected)
+                if (lastSignal == null || lastSignal.isEmpty()) {
+                    Log.d(TAG, "First run - no previous signal to compare, skipping notification");
+                } else if (!signal.equals(lastSignal)) {
+                    shouldNotify = true;
+                    Log.d(TAG, "Signal change detected: " + lastSignal + " -> " + signal);
                 } else {
-                    Log.i(TAG, "Notification suppressed by user preferences for signal: " + signal);
+                    Log.d(TAG, "No signal change, no notification sent");
                 }
-            } else {
-                Log.d(TAG, "No signal change, no notification sent");
+            }
+
+            if (shouldNotify) {
+                NotificationHelper.createChannels(getApplicationContext());
+                String msg = String.format(Locale.US, "Signal: %s (%.2f%% vs SMA)", signal, pct);
+                NotificationHelper.notifySignal(getApplicationContext(), "SMA Alerts", msg);
+                Log.i(TAG, "Notification sent: " + msg);
             }
 
             // Persist as today's signal
@@ -153,7 +175,8 @@ public class SMAWorker extends Worker {
         return sum / period;
     }
 
-    private static String determineSignal(double pct, float buy, float sell) {
+    // Made package-private for testing
+    static String determineSignal(double pct, float buy, float sell) {
         if (pct >= 40.0) return "SELL ALL";
         if (pct >= 30.0) return "SELL 80%";
         if (pct >= buy) return "BUY";
@@ -167,10 +190,6 @@ public class SMAWorker extends Worker {
         return sdf.format(new Date());
     }
 
-    private boolean isSignalEnabled(String signal) {
-        // With simplified controls, all signals are enabled if master toggle is on
-        return true;
-    }
 }
 
 

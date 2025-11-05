@@ -1,6 +1,6 @@
-# SMA Alerts 📈
+# SMA Alerts 📈 (Android App)
 
-A responsive web application for generating trading signals based on Simple Moving Average (SMA) analysis of major market indices.
+An Android app that generates trading signals based on Simple Moving Average (SMA) analysis for SPY and QQQM. It runs a daily background analysis and sends a notification when the signal changes.
 
 ## 🚀 Features
 
@@ -14,72 +14,76 @@ A responsive web application for generating trading signals based on Simple Movi
   - 🔴 **SELL 80%**: When 30% above SMA
   - 🔴 **SELL ALL**: When 40% above SMA
 
-### **User Experience**
-- **Auto-fetch Data**: Automatically loads signals when API key is available
-- **Responsive Design**: Works perfectly on desktop, tablet, and mobile
-- **Multiple Themes**: 5 beautiful themes (Light, Dark, Professional, Ocean, Sunset)
-- **Persistent Settings**: All preferences saved across sessions
-- **Real-time Updates**: Instant signal recalculation on setting changes
+### **Android Experience**
+- **Daily Background Analysis**: Scheduled with WorkManager once per day (weekdays)
+- **Notifications**: Single master toggle; alerts only when the signal changes
+- **Notification Time**: Configurable in your local timezone (default = 30 minutes before NYSE close, with DST handling)
+- **Auto-fetch on Launch**: If API key exists, data fetch and signal generation run on app open
+- **Persistent Settings**: Thresholds, SMA period, index, API key, notifications
 
 ### **Data & Security**
-- **Alpha Vantage API**: Real-time market data integration
-- **Local SMA Calculation**: More reliable than API-provided SMA
-- **Secure Storage**: API keys obfuscated and stored securely
-- **Error Handling**: Graceful handling of API limits and network issues
+- **Alpha Vantage API**: Daily market data (no realtime requirement)
+- **Local SMA Calculation**: Calculated on-device for reliability
+- **API Key Handling**: Obfuscated in the web layer, persisted natively in SharedPreferences
+- **Resilience**: Retry/backoff for network; robust error handling in background worker
 
-## 🛠️ Setup
+## 🛠️ Android Setup
 
 ### **Prerequisites**
-- Modern web browser (Chrome, Firefox, Safari, Edge)
-- Alpha Vantage API key (free tier available)
+- Android Studio (latest)
+- Android SDK + build tools
+- Java 17 (the project is pre-configured to use JDK 17 via Gradle settings)
+- Alpha Vantage API key (free)
 
-### **Installation**
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/yourusername/sma_alerts.git
-   cd sma_alerts
-   ```
+### **Install and Run**
+1) Clone the repository
+```bash
+git clone https://github.com/yourusername/sma_alerts.git
+cd sma_alerts
+```
 
-2. **Get API Key**:
-   - Visit [Alpha Vantage API](https://www.alphavantage.co/support/#api-key) to get your free API key
-   - Sign up for a free account
-   - Copy your API key
+2) Open the Android project in Android Studio
+- File → Open → select `android/` folder
+- Let Gradle sync and install any missing SDK components
 
-3. **Run the Application**:
-   - Open `index.html` in your web browser
-   - Enter your API key in the settings
-   - Configure your trading parameters
-   - Click "Generate Signal" or wait for auto-fetch
+3) Build and run
+- Select a device/emulator
+- Run ▶ (or Build → Rebuild Project if needed)
 
-## 📊 Usage
+4) Generate APK
+- Build → Build Bundle(s) / APK(s) → Build APK(s)
+- The APK will be in `android/app/build/outputs/apk/`
+
+## 📊 Using the App
 
 ### **Basic Workflow**
-1. **Select Index**: Choose between S&P 500 (SPY) or NASDAQ (QQQM)
-2. **Set Thresholds**: Configure buy/sell percentage thresholds
-3. **Choose SMA Period**: Set your preferred moving average period
-4. **Enter API Key**: Add your Alpha Vantage API key
-5. **Get Signals**: View your trading signals automatically
+1. Open the app (first launch may ask for notification permissions on Android 13+)
+2. Enter your Alpha Vantage API key (Settings section)
+3. Set thresholds (Buy X%, Sell Y%), SMA period, and index (SPY/QQQM)
+4. Enable notifications and set your preferred local notification time
+5. Tap "Generate Signal" to fetch now; background analysis runs daily and notifies on signal change
 
 ### **Configuration Options**
-- **Buy Signal**: Percentage above SMA to trigger BUY (default: 4%)
-- **Sell Signal**: Percentage below SMA to trigger SELL (default: 3%)
-- **SMA Period**: Number of days for moving average (default: 200)
-- **Index Selection**: S&P 500 or NASDAQ tracking
+- **Buy Signal (X%)**: Percent above SMA to trigger BUY (default: 4%)
+- **Sell Signal (Y%)**: Percent below SMA to trigger SELL (default: 3%)
+- **SMA Period**: Moving average days (default: 200)
+- **Index Selection**: SPY or QQQM
+- **Notifications**: Master toggle + time in your timezone (default = 30 min before NYSE close)
 
-### **Themes**
-- **☀️ Light**: Clean, modern light theme
-- **🌙 Dark**: Sleek dark interface for night trading
-- **💼 Professional**: Google-inspired corporate design
-- **🌊 Ocean**: Calming blue ocean theme
-- **🌅 Sunset**: Warm orange and red tones
+## 🔔 Notifications & Scheduling
+
+- Uses WorkManager for reliable daily execution
+- Reschedules after reboot (BootReceiver)
+- Only notifies when the signal changes from the last stored value
+- Notification time is set in the user's local timezone; internally converted relative to NYSE (handles DST)
 
 ## 🔧 Technical Details
 
 ### **Architecture**
-- **Frontend**: Pure HTML5, CSS3, JavaScript (ES6+)
-- **Data Source**: Alpha Vantage API
-- **Storage**: LocalStorage + Secure Cookies
-- **Responsive**: CSS Grid + Flexbox + Media Queries
+- **Android**: Java + WorkManager + Notification channels
+- **WebView UI**: HTML/CSS/JS bundled via `android/app/src/main/assets/public/index.html`
+- **Data Source**: Alpha Vantage (TIME_SERIES_DAILY)
+- **Persistence**: SharedPreferences (native) + localStorage (web layer for initial capture)
 
 ### **SMA Calculation**
 - **Method**: Simple Moving Average calculated locally
@@ -93,26 +97,19 @@ A responsive web application for generating trading signals based on Simple Movi
 - **Rate Limits**: 5 calls/minute, 500 calls/day
 - **Symbols**: SPY (S&P 500), QQQM (NASDAQ)
 
-## 📱 Responsive Design
+## 🧭 Permissions
 
-### **Breakpoints**
-- **Desktop**: > 768px (optimized for large screens)
-- **Tablet**: ≤ 768px (medium screens)
-- **Mobile**: ≤ 480px (small screens)
-
-### **Mobile Features**
-- Touch-friendly interface
-- Optimized font sizes
-- Stacked form layouts
-- Compact data display
+Declared in `AndroidManifest.xml`:
+- INTERNET, ACCESS_NETWORK_STATE
+- WAKE_LOCK, RECEIVE_BOOT_COMPLETED
+- POST_NOTIFICATIONS (Android 13+)
 
 ## 🔒 Security
 
-### **API Key Protection**
-- **Obfuscation**: Base64 encoding with string reversal
-- **Storage**: Secure cookies + localStorage fallback
-- **Transmission**: HTTPS only (when served from web server)
-- **Privacy**: No data sent to external servers except Alpha Vantage
+### **API Key Handling**
+- **Obfuscation (web UI)**: Base64 + reverse, captured into native storage on launch
+- **Native Storage**: SharedPreferences (not exported)
+- **Privacy**: No sharing beyond Alpha Vantage requests
 
 ## 🎯 Trading Strategy
 
@@ -157,6 +154,15 @@ This application is for educational and informational purposes only. It is not i
 - [Alpha Vantage](https://www.alphavantage.co/) for providing market data API
 - [Invesco](https://www.invesco.com/) for QQQM ETF
 - [State Street](https://www.ssga.com/) for SPY ETF
+
+---
+
+## 🖼️ App Icon
+
+This project includes an SVG icon (`icon.svg`). For Android launcher icons, use the generated assets from icon.kitchen or Android Studio Image Asset tool:
+- Place `ic_launcher.png` variants in `android/app/src/main/res/mipmap-*`
+- Adaptive icons XML in `res/mipmap-anydpi-v26/`
+- If needed, see `ANDROID_ICON_SETUP.md` for step-by-step guidance
 
 ---
 

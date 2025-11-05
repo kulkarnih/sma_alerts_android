@@ -16,14 +16,9 @@ public final class PrefsHelper {
     public static final String KEY_LAST_DATE = "lastDate"; // yyyy-MM-dd
 
     // Notification preferences
-    public static final String KEY_NOTIF_ENABLED = "notifEnabled"; // boolean
-    public static final String KEY_NOTIF_BUY = "notifBuy"; // boolean
-    public static final String KEY_NOTIF_SELL = "notifSell"; // boolean
-    public static final String KEY_NOTIF_HOLD = "notifHold"; // boolean
-    public static final String KEY_NOTIF_SELL80 = "notifSell80"; // boolean
-    public static final String KEY_NOTIF_SELLALL = "notifSellAll"; // boolean
-    public static final String KEY_NOTIF_HOUR = "notifHour"; // int, NY time
-    public static final String KEY_NOTIF_MIN = "notifMinute"; // int, NY time
+    public static final String KEY_NOTIF_FREQUENCY = "notifFrequency"; // string: "disabled", "on_change", "daily"
+    public static final String KEY_NOTIF_HOUR = "notifHour"; // int, user's local time
+    public static final String KEY_NOTIF_MIN = "notifMinute"; // int, user's local time
 
     private PrefsHelper() {}
 

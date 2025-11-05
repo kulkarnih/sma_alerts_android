@@ -37,7 +37,17 @@ public final class NotificationHelper {
                 .setPriority(NotificationCompat.PRIORITY_DEFAULT)
                 .setAutoCancel(true);
 
-        NotificationManagerCompat.from(context).notify((int) System.currentTimeMillis(), builder.build());
+        NotificationManagerCompat notificationManager = NotificationManagerCompat.from(context);
+        
+        // Check if notifications are enabled (handles permission check for Android 13+)
+        if (notificationManager.areNotificationsEnabled()) {
+            try {
+                notificationManager.notify((int) System.currentTimeMillis(), builder.build());
+            } catch (SecurityException e) {
+                // Permission was revoked, silently fail
+                // This can happen if user revokes notification permission at runtime
+            }
+        }
     }
 }
 

@@ -115,7 +115,7 @@ public class SMAWorker extends Worker {
             String lastDate = PrefsHelper.getString(getApplicationContext(), PrefsHelper.KEY_LAST_DATE, "");
             String notifFrequency = PrefsHelper.getString(getApplicationContext(), PrefsHelper.KEY_NOTIF_FREQUENCY, "on_change");
 
-            Log.d(TAG, "Current signal: " + signal + " (%.2f%%)".formatted(pct));
+            Log.d(TAG, "Current signal: " + signal + " (" + String.format(Locale.US, "%.2f%%", pct) + ")");
             Log.d(TAG, "Last signal: " + lastSignal + " on " + lastDate);
             Log.d(TAG, "Notification frequency: " + notifFrequency);
 

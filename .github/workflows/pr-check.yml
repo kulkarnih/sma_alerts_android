@@ -1,0 +1,64 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened]
+  push:
+    branches:
+      - main
+
+jobs:
+  # Prevent direct pushes to main (will fail if bypassed)
+  prevent-direct-push:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check if push is from PR merge
+        run: |
+          if [ -z "${{ github.event.head_commit.message }}" ] || [[ "${{ github.event.head_commit.message }}" != *"Merge pull request"* ]]; then
+            echo "❌ Direct push to main detected!"
+            echo "All changes to main must go through a pull request."
+            exit 1
+          else
+            echo "✅ Push is from merged PR - allowed"
+          fi
+
+  # Run checks on PRs
+  lint-and-test:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+        
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+      
+    - name: Grant execute permission for gradlew
+      run: chmod +x android/gradlew
+      
+    - name: Run Lint
+      run: |
+        cd android
+        ./gradlew :app:lintDebug --no-daemon || true
+      continue-on-error: true
+      
+    - name: Run Tests
+      run: |
+        cd android
+        ./gradlew :app:testDebugUnitTest --no-daemon
+      
+    - name: Check Build
+      run: |
+        cd android
+        ./gradlew :app:assembleDebug --no-daemon
+

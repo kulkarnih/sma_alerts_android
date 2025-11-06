@@ -1,24 +1,68 @@
-# Cursor IDE
+# ============================================
+# Root .gitignore for SMA Alerts Android App
+# ============================================
+
+# IDE and Editor files
 .cursor/
-
-# Node.js dependencies
-node_modules/
-
-# Common development files
-.DS_Store
-Thumbs.db
-
-# IDE files
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
+.project
+.classpath
+.settings/
 
-# Logs
-*.log
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Node.js dependencies
+node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.pnpm-debug.log*
+lerna-debug.log*
+
+# Package manager files (keep lock files for consistency)
+# package-lock.json  # Keep this - ensures consistent dependency versions
+yarn.lock
+pnpm-lock.yaml
+
+# Optional npm cache directory
+.npm
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+# Optional eslint cache
+.eslintcache
+.stylelintcache
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+
+# Output of 'npm pack'
+*.tgz
+*.tar.gz
+
+# Yarn files
+.yarn-integrity
+.yarn-integrity.*
 
 # Runtime data
 pids
@@ -26,60 +70,137 @@ pids
 *.seed
 *.pid.lock
 
-# Optional npm cache directory
-.npm
-
-# Optional eslint cache
-.eslintcache
-
-# Output of 'npm pack'
-*.tgz
-
-# Yarn Integrity file
-.yarn-integrity
-
-# dotenv environment variables file
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
 # Temporary folders
 tmp/
 temp/
+.tmp/
 
-# ------------------------------
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ============================================
 # Android / Gradle / Capacitor
-# ------------------------------
-# Root Gradle cache and build outputs
-.gradle/
-build/
+# ============================================
 
-# Android project files
+# Gradle files
+.gradle/
+gradle-app.setting
+!gradle-wrapper.jar
+!gradle-wrapper.properties
+.gradletasknamecache
+
+# Build outputs
+build/
+out/
+bin/
+gen/
+*.apk
+*.ap_
+*.aab
+*.aar
+*.dex
+*.class
+
+# Android Studio / IntelliJ IDEA
+*.iml
+.idea/
+*.ipr
+*.iws
+local.properties
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/dictionaries
+.idea/shelf
+.idea/caches
+.idea/modules.xml
+.idea/assetWizardSettings.xml
+.idea/gradle.xml
+.idea/navEditor.xml
+.idea/libraries
+
+# Android captures
+captures/
+android/captures/
+
+# Signing keys and certificates (NEVER COMMIT THESE!)
+*.keystore
+*.jks
+*.p12
+*.pem
+debug.keystore
+release.keystore
+android/debug.keystore
+android/release.keystore
+android/app/keystore.properties
+android/app/key.properties
+
+# Google services config (sensitive)
+android/app/google-services.json
+google-services.json
+
+# Android build files
 android/local.properties
 android/.gradle/
 android/build/
-android/captures/
 android/.cxx/
-
-# Module-specific build outputs
+android/.externalNativeBuild
 android/app/build/
 android/app/release/
 android/app/debug/
+android/capacitor-cordova-android-plugins/build/
+android/*/build/
 
-# Android Studio/IntelliJ
-android/.idea/
-android/*.iml
+# Capacitor generated files
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json
+android/app/src/main/res/xml/config.xml
 
-# Signing keys and properties
-*.keystore
-*.jks
-android/app/keystore.properties
+# Proguard
+proguard/
+android/app/proguard/
 
-# Google services config (if used)
-android/app/google-services.json
+# Lint reports
+lint/
+lint-intermediate/
+lint-outputs/
+lint-tmp/
+*.hprof
 
-# APK/AAB artifacts
-*.apk
-*.aab
+# Android Profiling
+*.hprof
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+
+# ============================================
+# GitHub Actions / CI/CD
+# ============================================
+# Keep workflow files but ignore artifacts
+.github/workflows/*.log
+.github/actions/*/dist/
+
+# ============================================
+# Test files
+# ============================================
+# Keep test source files, ignore test outputs
+coverage/
+.nyc_output/
+*.coverage
+*.lcov
+test-results/
+android/app/build/test-results/
+android/app/build/reports/tests/
+
+# ============================================
+# Documentation build outputs
+# ============================================
+docs/_build/
+site/

@@ -130,11 +130,54 @@ return 'HOLD';
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+### Branch Protection Policy
+
+**All changes to `main` must go through Pull Requests.** Direct commits to `main` are not allowed.
+
+### Development Workflow
+
+1. **Create a feature branch:**
+   ```bash
+   git checkout -b feature/your-feature-name
+   # or for bug fixes
+   git checkout -b fix/your-bug-fix
+   ```
+
+2. **Make your changes and commit:**
+   ```bash
+   git add .
+   git commit -m "Description of your changes"
+   ```
+
+3. **Push to GitHub:**
+   ```bash
+   git push origin feature/your-feature-name
+   ```
+
+4. **Create a Pull Request:**
+   - Go to your repository on GitHub
+   - Click **Pull requests** → **New pull request**
+   - Select your branch and fill in the description
+   - Wait for CI checks to pass
+   - Merge the PR (no approval needed)
+
+### Setting Up Branch Protection
+
+To enforce PR-only merges, set up branch protection:
+
+**Quick Setup (with GitHub CLI):**
+```bash
+./.github/setup-branch-protection.sh
+```
+
+**Manual Setup:**
+See [`.github/BRANCH_PROTECTION.md`](.github/BRANCH_PROTECTION.md) for detailed instructions.
+
+### Pull Request Requirements
+
+- ✅ All CI checks must pass
+- ✅ Branch must be up to date with main
+- ⚠️ **PR reviews not required** (solo contributor setup)
 
 ## 📄 License
 

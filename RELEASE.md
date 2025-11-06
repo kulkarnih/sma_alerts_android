@@ -231,9 +231,79 @@ cd android
 ./gradlew :app:assembleRelease
 ```
 
+## GitHub Actions (CI/CD)
+
+### Automatic Builds
+
+The repository includes a GitHub Actions workflow that automatically builds and releases the APK whenever you push to the `main` branch.
+
+**Workflow File:** `.github/workflows/build-and-release.yml`
+
+### What It Does
+
+1. **Triggers automatically** on pushes to `main` branch
+2. **Builds the release APK** using the same process as local builds
+3. **Creates a GitHub Release** with the APK attached
+4. **Tags the release** with the version number (e.g., `v0.1.0`)
+5. **Uploads the APK** as a downloadable asset
+
+### Manual Trigger
+
+You can also trigger the workflow manually:
+1. Go to **Actions** tab in GitHub
+2. Select **"Build and Release APK"** workflow
+3. Click **"Run workflow"**
+
+### Release Process
+
+1. Push your changes to `main` branch
+2. GitHub Actions automatically:
+   - Builds the APK
+   - Extracts version info from `build.gradle`
+   - Creates a release tag (e.g., `v0.1.0`)
+   - Creates a GitHub Release with the APK attached
+3. Download the APK from the **Releases** page on GitHub
+
+### Accessing Releases
+
+- Go to your repository on GitHub
+- Click **"Releases"** in the right sidebar
+- Find the latest release and download the APK
+
+### Workflow Features
+
+- ✅ Automatic version detection from `build.gradle`
+- ✅ Automatic release tagging
+- ✅ APK uploaded as GitHub Release asset
+- ✅ APK also available as workflow artifact (30 days retention)
+- ✅ Release notes include version info and commit links
+- ✅ Detects if version hasn't changed and updates existing release
+- ✅ Warns when updating existing release with same version
+
+### Important: Version Management
+
+**If you don't change the version before pushing:**
+- The existing release with the same version will be **updated** (not replaced)
+- The APK file will be **replaced** with the new build
+- A warning will be shown in the release notes
+- Users who already downloaded won't know there's a new build
+
+**Best Practice:**
+- Always increment `versionCode` in `build.gradle` before pushing
+- Update `versionName` if you want a new release tag
+- This ensures each build gets its own release and is trackable
+
+**Example:**
+```gradle
+// Before pushing new changes
+versionCode 1  → versionCode 2  ✅
+versionName "0.1.0" → versionName "0.1.1"  ✅
+```
+
 ## Additional Resources
 
 - **Lint Report:** `android/app/build/reports/lint-results-debug.html`
 - **Test Reports:** `android/app/build/reports/tests/`
 - **Build Logs:** Check console output for any warnings or errors
+- **GitHub Actions:** `.github/workflows/build-and-release.yml`
 

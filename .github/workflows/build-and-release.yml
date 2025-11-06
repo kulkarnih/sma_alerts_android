@@ -16,6 +16,15 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install npm dependencies
+      run: npm ci
+      
     - name: Set up JDK 17
       uses: actions/setup-java@v4
       with:
@@ -115,9 +124,7 @@ jobs:
         if [ "$TAG_EXISTS" = "true" ]; then
           RELEASE_NAME="Release ${VERSION_NAME} (Updated)"
           WARNING="⚠️ **Note:** This release has been updated with a new build. The version number has not changed."
-          PREVIOUS_BUILDS="### Previous Builds
-
-This release has been updated. Previous builds with the same version are no longer available."
+          PREVIOUS_BUILDS="### This release has been updated. Previous builds with the same version are no longer available."
         else
           RELEASE_NAME="Release ${VERSION_NAME}"
           WARNING=""

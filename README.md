@@ -18,8 +18,8 @@ An Android app that generates trading signals based on Simple Moving Average (SM
 - **Daily Background Analysis**: Scheduled with WorkManager once per day (weekdays)
 - **Notifications**: Single master toggle; alerts only when the signal changes
 - **Notification Time**: Configurable in your local timezone (default = 30 minutes before NYSE close, with DST handling)
-- **Auto-fetch on Launch**: If API key exists, data fetch and signal generation run on app open
-- **Persistent Settings**: Thresholds, SMA period, index, API key, notifications
+- **Auto-fetch on Launch**: If API key exists, data fetch and signal generation run on app open.
+- **Persistent Settings**: Thresholds, SMA period, index, API key, notifications.
 
 ### **Data & Security**
 - **Alpha Vantage API**: Daily market data (no realtime requirement)

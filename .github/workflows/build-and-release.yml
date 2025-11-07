@@ -11,10 +11,16 @@ on:
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Required to create tags and releases
+      id-token: write  # Required for OIDC authentication (if needed)
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch full history for tagging
+        token: ${{ secrets.GITHUB_TOKEN }}
       
     - name: Set up Node.js
       uses: actions/setup-node@v4
@@ -76,9 +82,13 @@ jobs:
         
     - name: Check if tag exists
       id: check_tag
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         VERSION_NAME="${{ steps.version.outputs.version_name }}"
         TAG="v${VERSION_NAME}"
+        # Configure git to use GITHUB_TOKEN for authentication
+        git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
         if git ls-remote --tags origin "$TAG" | grep -q "$TAG"; then
           echo "exists=true" >> $GITHUB_OUTPUT
           echo "Tag $TAG already exists - will update existing release"
@@ -90,6 +100,8 @@ jobs:
         
     - name: Create Release Tag
       id: create_tag
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         VERSION_NAME="${{ steps.version.outputs.version_name }}"
         VERSION_CODE="${{ steps.version.outputs.version_code }}"
@@ -106,6 +118,8 @@ jobs:
           echo "Creating new tag: $TAG"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Configure git to use GITHUB_TOKEN for authentication
+          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
           git tag -a "$TAG" -m "Release $TAG (build $VERSION_CODE)"
           git push origin "$TAG"
         else

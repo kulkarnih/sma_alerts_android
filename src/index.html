@@ -722,6 +722,24 @@
             localStorage.setItem('notifHour', String(parseInt(hStr || '15', 10)));
             localStorage.setItem('notifMinute', String(parseInt(mStr || '30', 10)));
             
+            // Notify Android to reschedule notifications when time/frequency changes
+            console.log('Checking for Android interface...');
+            console.log('window.Android:', window.Android);
+            if (window.Android && typeof window.Android.rescheduleNotifications === 'function') {
+                console.log('Calling window.Android.rescheduleNotifications()');
+                try {
+                    window.Android.rescheduleNotifications();
+                    console.log('Successfully called rescheduleNotifications()');
+                } catch (e) {
+                    console.error('Error calling rescheduleNotifications():', e);
+                }
+            } else {
+                console.warn('Android interface not available. window.Android:', window.Android);
+                if (window.Android) {
+                    console.warn('window.Android.rescheduleNotifications type:', typeof window.Android.rescheduleNotifications);
+                }
+            }
+            
             const apiKey = document.getElementById('apiKey').value;
             if (apiKey) {
                 const obfuscatedKey = obfuscateKey(apiKey);
@@ -875,6 +893,28 @@
         window.onload = function() {
             loadSettings();
             autoFetchIfReady();
+            
+            // Add event listeners to notification settings to auto-save and reschedule
+            const notifTimeInput = document.getElementById('notifTime');
+            const notifFrequencySelect = document.getElementById('notifFrequency');
+            
+            if (notifTimeInput) {
+                notifTimeInput.addEventListener('change', function() {
+                    console.log('Notification time changed to:', this.value);
+                    saveSettings();
+                });
+                notifTimeInput.addEventListener('input', function() {
+                    // Also save on input for immediate feedback (though change is usually enough)
+                    console.log('Notification time input:', this.value);
+                });
+            }
+            
+            if (notifFrequencySelect) {
+                notifFrequencySelect.addEventListener('change', function() {
+                    console.log('Notification frequency changed to:', this.value);
+                    saveSettings();
+                });
+            }
         };
 
     </script>

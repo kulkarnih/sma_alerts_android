@@ -502,13 +502,15 @@ This document outlines comprehensive functional testing for the SMA Alerts Andro
 | TC-SCHEDULE-001 | App launched | Worker scheduled for next notification time |
 | TC-SCHEDULE-002 | Device rebooted | Worker rescheduled by BootReceiver |
 | TC-SCHEDULE-003 | Notification time changed | Worker rescheduled for new time |
-| TC-SCHEDULE-004 | Weekend day | Worker scheduled for next weekday |
+| TC-SCHEDULE-004 | Weekend day | Worker scheduled for next day (weekends allowed) |
+| TC-SCHEDULE-005 | User sets 7:30 AM IST | Worker scheduled for 7:30 AM IST (local time, not converted) |
 
 **Test Steps**:
 1. Verify WorkManager schedules work correctly
-2. Verify timezone conversion works
-3. Verify DST handling
-4. Verify weekend skipping
+2. Verify scheduling uses user's local timezone directly (no NY time conversion)
+3. Verify DST handling (automatic via Java timezone APIs)
+4. Verify weekends are allowed (no weekend skipping)
+5. Verify if time has passed today, it schedules for tomorrow
 
 ---
 

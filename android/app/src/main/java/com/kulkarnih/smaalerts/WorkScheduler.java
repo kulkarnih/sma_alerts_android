@@ -108,31 +108,28 @@ public final class WorkScheduler {
             int hour = PrefsHelper.getInt(ctx, PrefsHelper.KEY_NOTIF_HOUR, 15);
             int minute = PrefsHelper.getInt(ctx, PrefsHelper.KEY_NOTIF_MIN, 30);
             
-            // Convert user's local time to NY time for scheduling
+            // Schedule at user's local time (not converted to NY time)
             ZonedDateTime nowLocal = ZonedDateTime.now();
-            ZonedDateTime userTimeToday = ZonedDateTime.of(nowLocal.toLocalDate(), LocalTime.of(hour, minute), nowLocal.getZone());
+            ZonedDateTime candidate = ZonedDateTime.of(nowLocal.toLocalDate(), LocalTime.of(hour, minute), nowLocal.getZone());
             
-            // Convert to NY timezone
-            ZonedDateTime userTimeInNY = userTimeToday.withZoneSameInstant(NY_ZONE);
-            LocalTime runTime = userTimeInNY.toLocalTime();
-            
-            ZonedDateTime nowNY = ZonedDateTime.now(NY_ZONE);
-            ZonedDateTime candidate = ZonedDateTime.of(LocalDate.now(NY_ZONE), runTime, NY_ZONE);
-            if (nowNY.compareTo(candidate) >= 0) {
+            // If the time has already passed today, schedule for tomorrow
+            if (nowLocal.compareTo(candidate) >= 0) {
                 candidate = candidate.plusDays(1);
             }
 
-            while (candidate.getDayOfWeek().getValue() >= 6) {
-                candidate = candidate.plusDays(1);
-            }
+            // Note: Removed weekend skip - users may want notifications on weekends too
+            // If you want to skip weekends, uncomment the following:
+            // while (candidate.getDayOfWeek().getValue() >= 6) {
+            //     candidate = candidate.plusDays(1);
+            // }
 
-            long millis = candidate.withZoneSameInstant(nowLocal.getZone()).toInstant().toEpochMilli() - nowLocal.toInstant().toEpochMilli();
+            long millis = candidate.toInstant().toEpochMilli() - nowLocal.toInstant().toEpochMilli();
             if (millis < 0) millis = 0;
 
-            Log.d(TAG, "User time: " + userTimeToday + " -> NY time: " + userTimeInNY);
+            Log.d(TAG, "User requested time: " + hour + ":" + minute + " (local timezone)");
             Log.d(TAG, "Next analysis scheduled for: " + candidate);
-            Log.d(TAG, "Current time: " + nowNY);
-            Log.d(TAG, "Delay: " + millis + "ms");
+            Log.d(TAG, "Current time: " + nowLocal);
+            Log.d(TAG, "Delay: " + (millis / 1000 / 60) + " minutes (" + millis + "ms)");
 
             return Duration.ofMillis(millis);
         } catch (Exception e) {

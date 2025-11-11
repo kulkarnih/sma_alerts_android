@@ -53,8 +53,14 @@ public class SMAWorker extends Worker {
             }
 
             // Fetch data from Alpha Vantage with retry logic
-            String symbol = (index == null || index.isEmpty()) ? "SPY" : index;
+            // Handle case where index might be stored as string "null" from JavaScript
+            String symbol = "SPY"; // Default
+            if (index != null && !index.isEmpty() && !"null".equalsIgnoreCase(index)) {
+                symbol = index;
+            }
             String url = "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=" + symbol + "&apikey=" + apiKey + "&outputsize=full";
+            Log.i(TAG, "Calling Alpha Vantage API URL: " + url);
+            
             JSONObject json = NetworkHelper.fetchWithRetry(url);
             
             if (json == null) {
@@ -77,16 +83,62 @@ public class SMAWorker extends Worker {
                 return Result.success(); // Don't retry on API errors
             }
 
-            if (json.has("Note")) {
-                String note = json.getString("Note");
-                Log.w(TAG, "API Note: " + note);
-                // Continue with analysis even if there's a note
-            }
-
+            // Check for time series data first - if it exists, process it regardless of other fields
             if (!json.has("Time Series (Daily)")) {
-                Log.e(TAG, "No time series data in response");
+                // No data - check for rate limit or other error messages
+                if (json.has("Information")) {
+                    String information = json.getString("Information");
+                    Log.w(TAG, "API Information: " + information);
+                    // Check if this is a rate limit message
+                    if (information.toLowerCase().contains("rate limit") || information.toLowerCase().contains("requests per day")) {
+                        Log.e(TAG, "API rate limit reached");
+                        String notifFrequency = PrefsHelper.getString(getApplicationContext(), PrefsHelper.KEY_NOTIF_FREQUENCY, "on_change");
+                        // Only notify about rate limit if notifications are not disabled
+                        if (!"disabled".equals(notifFrequency)) {
+                            NotificationHelper.createChannels(getApplicationContext());
+                            NotificationHelper.notifySignal(getApplicationContext(), "SMA Alerts", "API rate limit reached. Will retry tomorrow.");
+                        }
+                        // Schedule for next day (24 hours from now) instead of immediate retry
+                        WorkScheduler.scheduleDailyAnalysis(getApplicationContext());
+                        return Result.success(); // Don't retry immediately on rate limit
+                    }
+                    // For other information messages when no data, treat as error
+                    Log.e(TAG, "API Information (no data): " + information);
+                    String notifFrequency = PrefsHelper.getString(getApplicationContext(), PrefsHelper.KEY_NOTIF_FREQUENCY, "on_change");
+                    if (!"disabled".equals(notifFrequency)) {
+                        NotificationHelper.createChannels(getApplicationContext());
+                        NotificationHelper.notifySignal(getApplicationContext(), "SMA Alerts", "API Information: " + information);
+                    }
+                    WorkScheduler.scheduleDailyAnalysis(getApplicationContext());
+                    return Result.success();
+                }
+                
+                if (json.has("Note")) {
+                    String note = json.getString("Note");
+                    Log.e(TAG, "API Note (no data): " + note);
+                    String notifFrequency = PrefsHelper.getString(getApplicationContext(), PrefsHelper.KEY_NOTIF_FREQUENCY, "on_change");
+                    if (!"disabled".equals(notifFrequency)) {
+                        NotificationHelper.createChannels(getApplicationContext());
+                        NotificationHelper.notifySignal(getApplicationContext(), "SMA Alerts", "API Note: " + note);
+                    }
+                    WorkScheduler.scheduleDailyAnalysis(getApplicationContext());
+                    return Result.success();
+                }
+                
+                Log.e(TAG, "No time series data in response and no error message");
                 WorkScheduler.scheduleDailyAnalysis(getApplicationContext());
                 return Result.retry();
+            }
+            
+            // If we have data, log any information or note messages but continue processing
+            if (json.has("Information")) {
+                String information = json.getString("Information");
+                Log.w(TAG, "API Information (data still available): " + information);
+            }
+            
+            if (json.has("Note")) {
+                String note = json.getString("Note");
+                Log.w(TAG, "API Note (data still available): " + note);
             }
 
             JSONObject series = json.getJSONObject("Time Series (Daily)");

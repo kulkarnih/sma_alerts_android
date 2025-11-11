@@ -116,6 +116,10 @@ public class MainActivity extends BridgeActivity {
         evalJS("localStorage.getItem('" + localKey + "')", val -> {
             if (val != null) {
                 String clean = trimQuotes(val);
+                // Skip storing if value is null, empty, or the string "null"
+                if (clean == null || clean.isEmpty() || "null".equalsIgnoreCase(clean)) {
+                    return;
+                }
                 if (prefKey.equals(PrefsHelper.KEY_SMA)) {
                     try { PrefsHelper.putInt(this, PrefsHelper.KEY_SMA, Integer.parseInt(clean)); } catch (Exception ignored) {}
                 } else if (prefKey.equals(PrefsHelper.KEY_BUY) || prefKey.equals(PrefsHelper.KEY_SELL)) {
@@ -157,13 +161,18 @@ public class MainActivity extends BridgeActivity {
         runOnUiThread(() -> {
             // Use a counter to track when all async operations complete
             final int[] completionCount = {0};
-            final int totalOperations = 3;
+            final int totalOperations = 4; // Include API key capture
             
             Runnable rescheduleIfComplete = () -> {
                 completionCount[0]++;
                 if (completionCount[0] >= totalOperations) {
                     // All preferences updated, now reschedule
                     Log.i(TAG, "All notification settings updated. Rescheduling notifications...");
+                    // Check if API key exists before rescheduling
+                    String apiKey = PrefsHelper.getString(this, PrefsHelper.KEY_API, "");
+                    if (apiKey == null || apiKey.isEmpty()) {
+                        Log.w(TAG, "API key not yet available, scheduling with minimum delay to allow time for setup");
+                    }
                     WorkScheduler.scheduleDailyAnalysis(this);
                     Log.i(TAG, "Notifications rescheduled successfully");
                 }
@@ -197,6 +206,46 @@ public class MainActivity extends BridgeActivity {
                     Log.w(TAG, "Failed to parse notification minute", e);
                 }
                 rescheduleIfComplete.run();
+            });
+            // Also capture API key to ensure it's available before scheduling
+            evalJS("(function(){var el=document.getElementById('apiKey');return el?el.value:'';})()", val -> {
+                if (val != null) {
+                    String clean = trimQuotes(val);
+                    if (!clean.isEmpty()) {
+                        PrefsHelper.putString(this, PrefsHelper.KEY_API, clean);
+                        Log.d(TAG, "API key captured during reschedule");
+                    } else {
+                        Log.d(TAG, "API key not yet set in UI");
+                    }
+                }
+                rescheduleIfComplete.run();
+            });
+        });
+    }
+
+    /**
+     * Called from JavaScript when API key is updated
+     * Updates the API key in SharedPreferences
+     */
+    @android.webkit.JavascriptInterface
+    public void updateApiKey() {
+        Log.d(TAG, "updateApiKey() called from JavaScript");
+        
+        // Run on main thread since WebView operations must be on the main thread
+        runOnUiThread(() -> {
+            // Read API key from the input field
+            evalJS("(function(){var el=document.getElementById('apiKey');return el?el.value:'';})()", val -> {
+                if (val != null) {
+                    String clean = trimQuotes(val);
+                    if (!clean.isEmpty()) {
+                        PrefsHelper.putString(this, PrefsHelper.KEY_API, clean);
+                        Log.i(TAG, "API key updated from UI");
+                    } else {
+                        // Clear API key if empty
+                        PrefsHelper.putString(this, PrefsHelper.KEY_API, "");
+                        Log.d(TAG, "API key cleared");
+                    }
+                }
             });
         });
     }

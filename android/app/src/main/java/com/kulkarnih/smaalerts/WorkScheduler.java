@@ -29,11 +29,45 @@ public final class WorkScheduler {
 
     public static void scheduleDailyAnalysis(Context context) {
         try {
-            // Cancel any existing work
-            WorkManager.getInstance(context).cancelUniqueWork(UNIQUE_WORK_NAME);
+            WorkManager workManager = WorkManager.getInstance(context);
+            
+            // Check if work is already running - if so, don't cancel it, let it finish
+            // It will reschedule itself when done
+            try {
+                List<WorkInfo> workInfos = workManager.getWorkInfosForUniqueWork(UNIQUE_WORK_NAME).get();
+                if (workInfos != null && !workInfos.isEmpty()) {
+                    WorkInfo workInfo = workInfos.get(0);
+                    WorkInfo.State state = workInfo.getState();
+                    if (state == WorkInfo.State.RUNNING) {
+                        Log.d(TAG, "Work is already running, skipping reschedule. It will reschedule itself when done.");
+                        return;
+                    }
+                    // If work is ENQUEUED, check if it's about to run (has no delay or very short delay)
+                    // We can't easily get the exact scheduled time, so we'll be conservative:
+                    // Only skip if it's BLOCKED (waiting for constraints) or RUNNING
+                    if (state == WorkInfo.State.BLOCKED) {
+                        Log.d(TAG, "Work is blocked (waiting for constraints), will cancel and reschedule with new settings");
+                    }
+                }
+            } catch (Exception e) {
+                Log.w(TAG, "Could not check work status, proceeding with cancellation", e);
+            }
+            
+            // Cancel any existing work that's not running
+            workManager.cancelUniqueWork(UNIQUE_WORK_NAME);
 
             Duration delay = calculateDelayUntilNextRun(context);
             long delayMs = delay.toMillis();
+            
+            // Check if API key is missing - if so, add extra delay to give user time to set it
+            String apiKey = PrefsHelper.getString(context, PrefsHelper.KEY_API, "");
+            if (apiKey == null || apiKey.isEmpty()) {
+                long minDelayForSetup = 5 * 60 * 1000; // 5 minutes minimum if API key is missing
+                if (delayMs < minDelayForSetup) {
+                    Log.w(TAG, "API key missing and delay too short, using " + (minDelayForSetup / 1000 / 60) + " minute delay to allow setup");
+                    delayMs = minDelayForSetup;
+                }
+            }
             
             // Ensure delay is within reasonable bounds
             if (delayMs < MIN_DELAY_MS) {

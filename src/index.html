@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>SMA Alerts</title>
-    <link rel="icon" type="image/svg+xml" href="../icon.svg">
-    <link rel="apple-touch-icon" href="../icon.svg">
+    <!-- Icon references removed - icon.svg doesn't exist and was causing Capacitor asset loading errors -->
     <style>
         :root {
             /* Default Light Theme */
@@ -750,6 +749,16 @@
                 deleteCookie('apiKey');
                 localStorage.removeItem('apiKey');
             }
+            
+            // Notify Android to update API key in SharedPreferences
+            if (window.Android && typeof window.Android.updateApiKey === 'function') {
+                try {
+                    window.Android.updateApiKey();
+                    console.log('Successfully called updateApiKey()');
+                } catch (e) {
+                    console.error('Error calling updateApiKey():', e);
+                }
+            }
         }
 
         // Calculate SMA from daily data
@@ -805,13 +814,30 @@
                     throw new Error(data['Error Message']);
                 }
 
-                if (data['Note']) {
-                    throw new Error('API call frequency limit reached. Please try again later.');
-                }
-
+                // Check for time series data first - if it exists, process it regardless of other fields
                 const timeSeries = data['Time Series (Daily)'];
                 if (!timeSeries) {
+                    // No data - check for rate limit or other error messages
+                    if (data['Information']) {
+                        const information = data['Information'];
+                        // Check if this is a rate limit message
+                        if (information.toLowerCase().includes('rate limit') || information.toLowerCase().includes('requests per day')) {
+                            throw new Error('API rate limit reached. Will retry automatically tomorrow.');
+                        }
+                        // For other information messages when no data, treat as error
+                        throw new Error('API Information: ' + information);
+                    }
+                    
+                    if (data['Note']) {
+                        throw new Error('API call frequency limit reached. Please try again later.');
+                    }
+                    
                     throw new Error('No data received from API');
+                }
+                
+                // If we have data, log any information messages but continue processing
+                if (data['Information']) {
+                    console.warn('API Information (data still available):', data['Information']);
                 }
 
                 // Get current price (most recent trading day)
@@ -913,6 +939,36 @@
                 notifFrequencySelect.addEventListener('change', function() {
                     console.log('Notification frequency changed to:', this.value);
                     saveSettings();
+                });
+            }
+            
+            // Add event listener to API key input to update Android immediately when changed
+            const apiKeyInput = document.getElementById('apiKey');
+            if (apiKeyInput) {
+                apiKeyInput.addEventListener('blur', function() {
+                    // Update when user leaves the field (on blur)
+                    console.log('API key field blurred, updating Android');
+                    if (window.Android && typeof window.Android.updateApiKey === 'function') {
+                        try {
+                            window.Android.updateApiKey();
+                            console.log('Successfully called updateApiKey() on blur');
+                        } catch (e) {
+                            console.error('Error calling updateApiKey():', e);
+                        }
+                    }
+                });
+                // Also update when Enter is pressed
+                apiKeyInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        if (window.Android && typeof window.Android.updateApiKey === 'function') {
+                            try {
+                                window.Android.updateApiKey();
+                                console.log('Successfully called updateApiKey() on Enter');
+                            } catch (e) {
+                                console.error('Error calling updateApiKey():', e);
+                            }
+                        }
+                    }
                 });
             }
         };

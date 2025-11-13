@@ -21,6 +21,7 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        maven { url 'https://jitpack.io' }  // For Yahoo Finance API library
     }
     
     // Force Java 17 for all modules

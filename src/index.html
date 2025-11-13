@@ -840,14 +840,46 @@
                     console.warn('API Information (data still available):', data['Information']);
                 }
 
-                // Get current price (most recent trading day)
-                const dates = Object.keys(timeSeries).sort().reverse();
-                const currentData = timeSeries[dates[0]];
-                const currentPrice = parseFloat(currentData['4. close']);
-
-                // Get SMA period and calculate SMA
+                // Get SMA period and calculate SMA from historical data
                 const smaPeriod = parseInt(document.getElementById('smaPeriod').value);
                 const sma = calculateSMA(timeSeries, smaPeriod);
+
+                // Get current/latest price from Yahoo Finance (real-time)
+                let currentPrice = 0;
+                console.log('Checking for Android interface...');
+                console.log('window.Android exists:', typeof window.Android !== 'undefined');
+                console.log('window.Android.getLatestPrice type:', typeof (window.Android && window.Android.getLatestPrice));
+                
+                if (window.Android && typeof window.Android.getLatestPrice === 'function') {
+                    console.log('Calling window.Android.getLatestPrice for symbol:', config.symbol);
+                    try {
+                        const latestPriceStr = window.Android.getLatestPrice(config.symbol);
+                        console.log('getLatestPrice returned:', latestPriceStr);
+                        const latestPrice = parseFloat(latestPriceStr);
+                        if (latestPrice > 0) {
+                            currentPrice = latestPrice;
+                            console.log('Got latest price from Yahoo Finance: ' + currentPrice);
+                        } else {
+                            // Fallback to most recent close from Alpha Vantage
+                            console.warn('Yahoo Finance returned 0 or invalid, using most recent close from Alpha Vantage');
+                            const dates = Object.keys(timeSeries).sort().reverse();
+                            const currentData = timeSeries[dates[0]];
+                            currentPrice = parseFloat(currentData['4. close']);
+                        }
+                    } catch (error) {
+                        console.error('Error calling getLatestPrice:', error);
+                        // Fallback to most recent close from Alpha Vantage
+                        const dates = Object.keys(timeSeries).sort().reverse();
+                        const currentData = timeSeries[dates[0]];
+                        currentPrice = parseFloat(currentData['4. close']);
+                    }
+                } else {
+                    // Fallback to most recent close from Alpha Vantage if Android interface not available
+                    console.warn('Android interface not available, using most recent close from Alpha Vantage');
+                    const dates = Object.keys(timeSeries).sort().reverse();
+                    const currentData = timeSeries[dates[0]];
+                    currentPrice = parseFloat(currentData['4. close']);
+                }
 
                 // Get thresholds
                 const buyThreshold = parseFloat(document.getElementById('buyThreshold').value);

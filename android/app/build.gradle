@@ -56,6 +56,9 @@ dependencies {
     implementation project(':capacitor-android')
     // WorkManager for background scheduling
     implementation "androidx.work:work-runtime:2.9.0"
+    // Yahoo Finance API for real-time stock prices
+    // Using JitPack repository for this library
+    implementation 'com.github.sstrickx:yahoofinance-api:3.17.0'
     // Desugaring support for java.time API on older Android versions
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.3'
     testImplementation "junit:junit:$junitVersion"

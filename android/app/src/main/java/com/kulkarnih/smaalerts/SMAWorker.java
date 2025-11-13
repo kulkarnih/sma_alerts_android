@@ -21,6 +21,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.TimeZone;
+import java.io.IOException;
+import org.json.JSONArray;
 
 public class SMAWorker extends Worker {
     private static final String TAG = "SMAWorker";
@@ -153,12 +155,19 @@ public class SMAWorker extends Worker {
                 return Result.retry();
             }
 
-            // Current price: last close
-            JSONObject latest = series.getJSONObject(dates.get(0));
-            double current = latest.getDouble("4. close");
-
-            // Compute SMA
+            // Compute SMA from historical data
             double sma = computeSMA(series, dates, smaPeriod);
+            
+            // Get current/latest price from Yahoo Finance (real-time)
+            double current = getLatestPrice(symbol);
+            if (current <= 0) {
+                // Fallback to most recent close from Alpha Vantage if Yahoo Finance fails
+                Log.w(TAG, "Failed to get latest price from Yahoo Finance, using most recent close from Alpha Vantage");
+                JSONObject latest = series.getJSONObject(dates.get(0));
+                current = latest.getDouble("4. close");
+            } else {
+                Log.i(TAG, "Got latest price from Yahoo Finance: " + current);
+            }
             double pct = ((current - sma) / sma) * 100.0;
             String signal = determineSignal(pct, buy, sell);
 
@@ -240,6 +249,110 @@ public class SMAWorker extends Worker {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
         sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
         return sdf.format(new Date());
+    }
+
+    /**
+     * Fetches the latest real-time stock price from Yahoo Finance API using direct HTTP request.
+     * Returns 0.0 if the price cannot be retrieved.
+     * Made package-private for testing.
+     */
+    static double getLatestPrice(String symbol) {
+        HttpURLConnection connection = null;
+        BufferedReader reader = null;
+        try {
+            Log.d(TAG, "Fetching latest price from Yahoo Finance for symbol: " + symbol);
+            
+            // Yahoo Finance API endpoint
+            String urlString = "https://query1.finance.yahoo.com/v8/finance/chart/" + symbol + "?interval=1d&range=1d";
+            URL url = new URL(urlString);
+            connection = (HttpURLConnection) url.openConnection();
+            
+            // Set User-Agent to mimic a browser request (required by Yahoo Finance)
+            connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
+            connection.setRequestProperty("Accept", "application/json");
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout(10000); // 10 seconds
+            connection.setReadTimeout(10000); // 10 seconds
+            
+            int responseCode = connection.getResponseCode();
+            Log.d(TAG, "Yahoo Finance API response code: " + responseCode);
+            
+            if (responseCode != HttpURLConnection.HTTP_OK) {
+                Log.e(TAG, "Yahoo Finance API returned error code: " + responseCode);
+                return 0.0;
+            }
+            
+            // Read response
+            reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+            StringBuilder response = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                response.append(line);
+            }
+            
+            // Parse JSON response
+            JSONObject jsonResponse = new JSONObject(response.toString());
+            JSONObject chart = jsonResponse.optJSONObject("chart");
+            if (chart == null) {
+                Log.e(TAG, "Invalid response structure from Yahoo Finance");
+                return 0.0;
+            }
+            
+            JSONArray result = chart.optJSONArray("result");
+            if (result == null || result.length() == 0) {
+                Log.e(TAG, "No result data from Yahoo Finance");
+                return 0.0;
+            }
+            
+            JSONObject resultObj = result.getJSONObject(0);
+            JSONObject meta = resultObj.optJSONObject("meta");
+            if (meta == null) {
+                Log.e(TAG, "No meta data from Yahoo Finance");
+                return 0.0;
+            }
+            
+            // Try to get regular market price first
+            double price = 0.0;
+            if (meta.has("regularMarketPrice")) {
+                price = meta.getDouble("regularMarketPrice");
+                Log.d(TAG, "Got regular market price: " + price);
+            } else if (meta.has("previousClose")) {
+                // Fallback to previous close if market is closed
+                price = meta.getDouble("previousClose");
+                Log.d(TAG, "Using previous close price: " + price);
+            } else if (meta.has("chartPreviousClose")) {
+                // Another fallback option
+                price = meta.getDouble("chartPreviousClose");
+                Log.d(TAG, "Using chart previous close price: " + price);
+            }
+            
+            if (price <= 0) {
+                Log.e(TAG, "Invalid price from Yahoo Finance for symbol: " + symbol);
+                return 0.0;
+            }
+            
+            Log.i(TAG, "Successfully fetched price from Yahoo Finance: " + price);
+            return price;
+            
+        } catch (IOException e) {
+            Log.e(TAG, "IO error fetching price from Yahoo Finance for symbol: " + symbol, e);
+            return 0.0;
+        } catch (Exception e) {
+            Log.e(TAG, "Unexpected error fetching price from Yahoo Finance for symbol: " + symbol, e);
+            return 0.0;
+        } finally {
+            // Clean up resources
+            if (reader != null) {
+                try {
+                    reader.close();
+                } catch (IOException e) {
+                    Log.w(TAG, "Error closing reader", e);
+                }
+            }
+            if (connection != null) {
+                connection.disconnect();
+            }
+        }
     }
 
 }

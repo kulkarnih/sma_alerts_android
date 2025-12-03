@@ -9,7 +9,7 @@
     "@capacitor/cli": "^7.4.4"
   },
   "name": "sma_alerts",
-  "version": "1.0.0",
+  "version": "0.2.0",
   "description": "A responsive web application for generating trading signals based on Simple Moving Average (SMA) analysis of major market indices.",
   "main": "index.js",
   "scripts": {

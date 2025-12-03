@@ -36,138 +36,37 @@ public class SMAWorker extends Worker {
     public Result doWork() {
         try {
             // Read settings
-            String apiKey = PrefsHelper.getString(getApplicationContext(), PrefsHelper.KEY_API, "");
-            String index = PrefsHelper.getString(getApplicationContext(), PrefsHelper.KEY_INDEX, "SPY");
+            String index = PrefsHelper.getString(getApplicationContext(), PrefsHelper.KEY_INDEX, "$SPX");
             int smaPeriod = PrefsHelper.getInt(getApplicationContext(), PrefsHelper.KEY_SMA, 200);
             float buy = PrefsHelper.getFloat(getApplicationContext(), PrefsHelper.KEY_BUY, 4.0f);
             float sell = PrefsHelper.getFloat(getApplicationContext(), PrefsHelper.KEY_SELL, 3.0f);
 
-            if (apiKey == null || apiKey.isEmpty()) {
-                Log.w(TAG, "API key missing, skipping analysis");
-                String notifFrequency = PrefsHelper.getString(getApplicationContext(), PrefsHelper.KEY_NOTIF_FREQUENCY, "on_change");
-                // Only notify about missing API key if notifications are not disabled
-                if (!"disabled".equals(notifFrequency)) {
-                    NotificationHelper.createChannels(getApplicationContext());
-                    NotificationHelper.notifySignal(getApplicationContext(), "SMA Alerts", "API key missing. Open the app to set it.");
-                }
-                WorkScheduler.scheduleDailyAnalysis(getApplicationContext());
-                return Result.success();
-            }
-
-            // Fetch data from Alpha Vantage with retry logic
             // Handle case where index might be stored as string "null" from JavaScript
-            String symbol = "SPY"; // Default
+            String symbol = "$SPX"; // Default
             if (index != null && !index.isEmpty() && !"null".equalsIgnoreCase(index)) {
                 symbol = index;
             }
-            String url = "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=" + symbol + "&apikey=" + apiKey + "&outputsize=full";
-            Log.i(TAG, "Calling Alpha Vantage API URL: " + url);
-            
-            JSONObject json = NetworkHelper.fetchWithRetry(url);
-            
-            if (json == null) {
-                Log.e(TAG, "Failed to fetch data after retries");
-                WorkScheduler.scheduleDailyAnalysis(getApplicationContext());
-                return Result.retry();
-            }
 
-            // Check for API errors
-            if (json.has("Error Message")) {
-                String error = json.getString("Error Message");
-                Log.e(TAG, "API Error: " + error);
+            // Fetch current price and 200-day SMA from barchart.com
+            Log.i(TAG, "Fetching data from barchart.com for symbol: " + symbol);
+            JSONObject barchartData = getBarchartData(symbol);
+            
+            if (barchartData == null || !barchartData.has("currentPrice") || !barchartData.has("sma200")) {
+                Log.e(TAG, "Failed to fetch data from barchart.com");
                 String notifFrequency = PrefsHelper.getString(getApplicationContext(), PrefsHelper.KEY_NOTIF_FREQUENCY, "on_change");
-                // Only notify about API errors if notifications are not disabled
                 if (!"disabled".equals(notifFrequency)) {
                     NotificationHelper.createChannels(getApplicationContext());
-                    NotificationHelper.notifySignal(getApplicationContext(), "SMA Alerts", "API Error: " + error);
+                    NotificationHelper.notifySignal(getApplicationContext(), "SMA Alerts", "Failed to fetch data from barchart.com. Will retry later.");
                 }
-                WorkScheduler.scheduleDailyAnalysis(getApplicationContext());
-                return Result.success(); // Don't retry on API errors
-            }
-
-            // Check for time series data first - if it exists, process it regardless of other fields
-            if (!json.has("Time Series (Daily)")) {
-                // No data - check for rate limit or other error messages
-                if (json.has("Information")) {
-                    String information = json.getString("Information");
-                    Log.w(TAG, "API Information: " + information);
-                    // Check if this is a rate limit message
-                    if (information.toLowerCase().contains("rate limit") || information.toLowerCase().contains("requests per day")) {
-                        Log.e(TAG, "API rate limit reached");
-                        String notifFrequency = PrefsHelper.getString(getApplicationContext(), PrefsHelper.KEY_NOTIF_FREQUENCY, "on_change");
-                        // Only notify about rate limit if notifications are not disabled
-                        if (!"disabled".equals(notifFrequency)) {
-                            NotificationHelper.createChannels(getApplicationContext());
-                            NotificationHelper.notifySignal(getApplicationContext(), "SMA Alerts", "API rate limit reached. Will retry tomorrow.");
-                        }
-                        // Schedule for next day (24 hours from now) instead of immediate retry
-                        WorkScheduler.scheduleDailyAnalysis(getApplicationContext());
-                        return Result.success(); // Don't retry immediately on rate limit
-                    }
-                    // For other information messages when no data, treat as error
-                    Log.e(TAG, "API Information (no data): " + information);
-                    String notifFrequency = PrefsHelper.getString(getApplicationContext(), PrefsHelper.KEY_NOTIF_FREQUENCY, "on_change");
-                    if (!"disabled".equals(notifFrequency)) {
-                        NotificationHelper.createChannels(getApplicationContext());
-                        NotificationHelper.notifySignal(getApplicationContext(), "SMA Alerts", "API Information: " + information);
-                    }
-                    WorkScheduler.scheduleDailyAnalysis(getApplicationContext());
-                    return Result.success();
-                }
-                
-                if (json.has("Note")) {
-                    String note = json.getString("Note");
-                    Log.e(TAG, "API Note (no data): " + note);
-                    String notifFrequency = PrefsHelper.getString(getApplicationContext(), PrefsHelper.KEY_NOTIF_FREQUENCY, "on_change");
-                    if (!"disabled".equals(notifFrequency)) {
-                        NotificationHelper.createChannels(getApplicationContext());
-                        NotificationHelper.notifySignal(getApplicationContext(), "SMA Alerts", "API Note: " + note);
-                    }
-                    WorkScheduler.scheduleDailyAnalysis(getApplicationContext());
-                    return Result.success();
-                }
-                
-                Log.e(TAG, "No time series data in response and no error message");
                 WorkScheduler.scheduleDailyAnalysis(getApplicationContext());
                 return Result.retry();
             }
             
-            // If we have data, log any information or note messages but continue processing
-            if (json.has("Information")) {
-                String information = json.getString("Information");
-                Log.w(TAG, "API Information (data still available): " + information);
-            }
+            // Extract current price and SMA from barchart data
+            double current = barchartData.getDouble("currentPrice");
+            double sma = barchartData.getDouble("sma200");
             
-            if (json.has("Note")) {
-                String note = json.getString("Note");
-                Log.w(TAG, "API Note (data still available): " + note);
-            }
-
-            JSONObject series = json.getJSONObject("Time Series (Daily)");
-            List<String> dates = new ArrayList<>();
-            for (Iterator<String> it = series.keys(); it.hasNext(); ) dates.add(it.next());
-            // Most recent first
-            Collections.sort(dates, Collections.reverseOrder());
-
-            if (dates.size() < smaPeriod) {
-                Log.e(TAG, "Not enough data points for SMA calculation: " + dates.size() + " < " + smaPeriod);
-                WorkScheduler.scheduleDailyAnalysis(getApplicationContext());
-                return Result.retry();
-            }
-
-            // Compute SMA from historical data
-            double sma = computeSMA(series, dates, smaPeriod);
-            
-            // Get current/latest price from Yahoo Finance (real-time)
-            double current = getLatestPrice(symbol);
-            if (current <= 0) {
-                // Fallback to most recent close from Alpha Vantage if Yahoo Finance fails
-                Log.w(TAG, "Failed to get latest price from Yahoo Finance, using most recent close from Alpha Vantage");
-                JSONObject latest = series.getJSONObject(dates.get(0));
-                current = latest.getDouble("4. close");
-            } else {
-                Log.i(TAG, "Got latest price from Yahoo Finance: " + current);
-            }
+            Log.i(TAG, "Got data from barchart.com - Price: " + current + ", SMA200: " + sma);
             double pct = ((current - sma) / sma) * 100.0;
             String signal = determineSignal(pct, buy, sell);
 
@@ -249,6 +148,353 @@ public class SMAWorker extends Worker {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
         sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
         return sdf.format(new Date());
+    }
+
+    /**
+     * Fetches current price and 200-day SMA from barchart.com.
+     * Returns a JSONObject with "currentPrice" and "sma200" keys.
+     * Returns null if data cannot be retrieved.
+     * Made package-private for testing.
+     */
+    static JSONObject getBarchartData(String symbol) {
+        HttpURLConnection connection = null;
+        BufferedReader reader = null;
+        try {
+            Log.d(TAG, "Fetching data from barchart.com for symbol: " + symbol);
+            
+            String urlString = "https://www.barchart.com/stocks/quotes/" + symbol + "/technical-analysis";
+            URL url = new URL(urlString);
+            connection = (HttpURLConnection) url.openConnection();
+            
+            // Set User-Agent to mimic a browser request (required by barchart.com)
+            connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36");
+            connection.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7");
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout(15000);
+            connection.setReadTimeout(15000);
+            
+            int responseCode = connection.getResponseCode();
+            Log.d(TAG, "Barchart.com API response code: " + responseCode);
+            
+            if (responseCode != HttpURLConnection.HTTP_OK) {
+                Log.e(TAG, "Barchart.com API returned error code: " + responseCode);
+                return null;
+            }
+            
+            // Read response
+            reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+            StringBuilder response = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                response.append(line);
+            }
+            
+            String html = response.toString();
+            
+            // Extract current price from JSON data in script tag
+            double currentPrice = 0.0;
+            try {
+                // Try multiple patterns to find the price
+                // Pattern 1: "lastPrice":681.53 or "lastPrice":"681.53" or "lastPrice":"23,413.67"
+                int lastPriceStart = html.indexOf("\"lastPrice\":");
+                if (lastPriceStart > 0) {
+                    int valueStart = lastPriceStart + 12; // length of "lastPrice":
+                    // Skip whitespace
+                    while (valueStart < html.length() && html.charAt(valueStart) == ' ') {
+                        valueStart++;
+                    }
+                    
+                    // Check if value is quoted
+                    boolean isQuoted = valueStart < html.length() && (html.charAt(valueStart) == '"' || html.charAt(valueStart) == '\'');
+                    char quoteChar = isQuoted ? html.charAt(valueStart) : 0;
+                    
+                    // Skip opening quote if present
+                    if (isQuoted) {
+                        valueStart++;
+                    }
+                    
+                    // Find the end - look for closing quote if quoted, or comma/} if not quoted
+                    int valueEnd = valueStart;
+                    if (isQuoted) {
+                        // Find closing quote
+                        while (valueEnd < html.length() && html.charAt(valueEnd) != quoteChar) {
+                            valueEnd++;
+                        }
+                    } else {
+                        // Find comma, }, or newline
+                        while (valueEnd < html.length()) {
+                            char c = html.charAt(valueEnd);
+                            if (c == ',' || c == '}' || c == '\n') {
+                                break;
+                            }
+                            valueEnd++;
+                        }
+                    }
+                    
+                    if (valueEnd > valueStart) {
+                        String priceStr = html.substring(valueStart, valueEnd).trim().replace(",", "");
+                        try {
+                            currentPrice = Double.parseDouble(priceStr);
+                            Log.d(TAG, "Extracted current price (method 1): " + currentPrice + " from string: " + html.substring(valueStart, valueEnd));
+                        } catch (NumberFormatException e) {
+                            Log.w(TAG, "Failed to parse price string: " + priceStr);
+                        }
+                    }
+                }
+                
+                // Pattern 2: Look in currentSymbol object if method 1 failed
+                if (currentPrice <= 0) {
+                    int currentSymbolStart = html.indexOf("\"currentSymbol\":");
+                    if (currentSymbolStart > 0) {
+                        int lastPriceStart2 = html.indexOf("\"lastPrice\":", currentSymbolStart);
+                        if (lastPriceStart2 > 0 && lastPriceStart2 < currentSymbolStart + 5000) { // within reasonable distance
+                            int valueStart = lastPriceStart2 + 12;
+                            // Skip whitespace
+                            while (valueStart < html.length() && html.charAt(valueStart) == ' ') {
+                                valueStart++;
+                            }
+                            
+                            // Check if value is quoted
+                            boolean isQuoted = valueStart < html.length() && (html.charAt(valueStart) == '"' || html.charAt(valueStart) == '\'');
+                            char quoteChar = isQuoted ? html.charAt(valueStart) : 0;
+                            
+                            // Skip opening quote if present
+                            if (isQuoted) {
+                                valueStart++;
+                            }
+                            
+                            // Find the end - look for closing quote if quoted, or comma/} if not quoted
+                            int valueEnd = valueStart;
+                            if (isQuoted) {
+                                // Find closing quote
+                                while (valueEnd < html.length() && html.charAt(valueEnd) != quoteChar) {
+                                    valueEnd++;
+                                }
+                            } else {
+                                // Find comma, }, or newline
+                                while (valueEnd < html.length()) {
+                                    char c = html.charAt(valueEnd);
+                                    if (c == ',' || c == '}' || c == '\n') {
+                                        break;
+                                    }
+                                    valueEnd++;
+                                }
+                            }
+                            
+                            if (valueEnd > valueStart) {
+                                String priceStr = html.substring(valueStart, valueEnd).trim().replace(",", "");
+                                try {
+                                    currentPrice = Double.parseDouble(priceStr);
+                                    Log.d(TAG, "Extracted current price (method 2): " + currentPrice + " from string: " + html.substring(valueStart, valueEnd));
+                                } catch (NumberFormatException e) {
+                                    Log.w(TAG, "Failed to parse price string: " + priceStr);
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                Log.w(TAG, "Failed to extract current price from JSON", e);
+            }
+            
+            // Extract 200-day SMA from HTML table
+            double sma200 = 0.0;
+            try {
+                // Look for the 200-Day row in the table - handle various formats
+                int rowStart = html.indexOf("<td>200-Day</td>");
+                if (rowStart < 0) {
+                    rowStart = html.indexOf("<td>200 Day</td>");
+                }
+                if (rowStart < 0) {
+                    rowStart = html.indexOf("200-Day");
+                }
+                
+                if (rowStart > 0) {
+                    // Find the next <td> tag after "200-Day" which contains the SMA value
+                    // Skip the first <td> (which contains "200-Day") and get the second one
+                    int firstTdEnd = html.indexOf("</td>", rowStart);
+                    if (firstTdEnd > 0) {
+                        int tdStart = html.indexOf("<td", firstTdEnd);
+                        if (tdStart > 0) {
+                            int valueStart = html.indexOf(">", tdStart) + 1;
+                            int valueEnd = html.indexOf("<", valueStart);
+                            if (valueEnd > valueStart) {
+                                String smaStr = html.substring(valueStart, valueEnd).trim().replace(",", "").replace("$", "");
+                                sma200 = Double.parseDouble(smaStr);
+                                Log.d(TAG, "Extracted 200-day SMA: " + sma200);
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                Log.w(TAG, "Failed to extract 200-day SMA from HTML", e);
+            }
+            
+            if (currentPrice <= 0 || sma200 <= 0) {
+                Log.e(TAG, "Failed to extract valid data - currentPrice: " + currentPrice + ", sma200: " + sma200);
+                return null;
+            }
+            
+            JSONObject result = new JSONObject();
+            result.put("currentPrice", currentPrice);
+            result.put("sma200", sma200);
+            
+            Log.i(TAG, "Successfully fetched data from barchart.com - Price: " + currentPrice + ", SMA200: " + sma200);
+            return result;
+            
+        } catch (IOException e) {
+            Log.e(TAG, "IO error fetching data from barchart.com for symbol: " + symbol, e);
+            return null;
+        } catch (Exception e) {
+            Log.e(TAG, "Unexpected error fetching data from barchart.com for symbol: " + symbol, e);
+            return null;
+        } finally {
+            if (reader != null) {
+                try {
+                    reader.close();
+                } catch (IOException e) {
+                    Log.w(TAG, "Error closing reader", e);
+                }
+            }
+            if (connection != null) {
+                connection.disconnect();
+            }
+        }
+    }
+
+    /**
+     * Fetches historical daily data from Yahoo Finance API for SMA calculation.
+     * Returns a JSONObject with time series data in format similar to Alpha Vantage:
+     * { "YYYY-MM-DD": { "4. close": price }, ... }
+     * Returns null if data cannot be retrieved.
+     * Made package-private for testing.
+     * @deprecated Use getBarchartData instead
+     */
+    @Deprecated
+    static JSONObject getHistoricalData(String symbol, int daysNeeded) {
+        HttpURLConnection connection = null;
+        BufferedReader reader = null;
+        try {
+            Log.d(TAG, "Fetching historical data from Yahoo Finance for symbol: " + symbol + ", days needed: " + daysNeeded);
+            
+            // Request 1 year of data to ensure we have at least 200 trading days
+            // 1 year = ~252 trading days, which is more than enough for 200-day SMA
+            String urlString = "https://query1.finance.yahoo.com/v8/finance/chart/" + symbol + "?interval=1d&range=1y";
+            URL url = new URL(urlString);
+            connection = (HttpURLConnection) url.openConnection();
+            
+            // Set User-Agent to mimic a browser request (required by Yahoo Finance)
+            connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
+            connection.setRequestProperty("Accept", "application/json");
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout(15000); // 15 seconds for historical data
+            connection.setReadTimeout(15000);
+            
+            int responseCode = connection.getResponseCode();
+            Log.d(TAG, "Yahoo Finance historical data API response code: " + responseCode);
+            
+            if (responseCode != HttpURLConnection.HTTP_OK) {
+                Log.e(TAG, "Yahoo Finance API returned error code: " + responseCode);
+                return null;
+            }
+            
+            // Read response
+            reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+            StringBuilder response = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                response.append(line);
+            }
+            
+            // Parse JSON response
+            JSONObject jsonResponse = new JSONObject(response.toString());
+            JSONObject chart = jsonResponse.optJSONObject("chart");
+            if (chart == null) {
+                Log.e(TAG, "Invalid response structure from Yahoo Finance");
+                return null;
+            }
+            
+            JSONArray result = chart.optJSONArray("result");
+            if (result == null || result.length() == 0) {
+                Log.e(TAG, "No result data from Yahoo Finance");
+                return null;
+            }
+            
+            JSONObject resultObj = result.getJSONObject(0);
+            JSONArray timestamps = resultObj.optJSONArray("timestamp");
+            JSONObject indicators = resultObj.optJSONObject("indicators");
+            
+            if (timestamps == null || indicators == null) {
+                Log.e(TAG, "Missing timestamp or indicators in Yahoo Finance response");
+                return null;
+            }
+            
+            JSONArray quote = indicators.optJSONArray("quote");
+            if (quote == null || quote.length() == 0) {
+                Log.e(TAG, "No quote data in Yahoo Finance response");
+                return null;
+            }
+            
+            JSONObject quoteData = quote.getJSONObject(0);
+            JSONArray closes = quoteData.optJSONArray("close");
+            
+            if (closes == null || timestamps.length() != closes.length()) {
+                Log.e(TAG, "Mismatch between timestamps and close prices");
+                return null;
+            }
+            
+            // Convert Yahoo Finance format to Alpha Vantage-like format for compatibility
+            JSONObject timeSeries = new JSONObject();
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+            sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
+            
+            for (int i = 0; i < timestamps.length(); i++) {
+                long timestamp = timestamps.getLong(i) * 1000; // Convert seconds to milliseconds
+                Date date = new Date(timestamp);
+                String dateStr = sdf.format(date);
+                
+                // Skip null/NaN close prices
+                if (closes.isNull(i)) {
+                    continue;
+                }
+                
+                double close = closes.getDouble(i);
+                if (Double.isNaN(close) || close <= 0) {
+                    continue;
+                }
+                
+                JSONObject dayData = new JSONObject();
+                dayData.put("4. close", close);
+                timeSeries.put(dateStr, dayData);
+            }
+            
+            if (timeSeries.length() < daysNeeded) {
+                Log.w(TAG, "Not enough data points from Yahoo Finance: " + timeSeries.length() + " < " + daysNeeded);
+                // Still return what we have, let the caller decide
+            }
+            
+            Log.i(TAG, "Successfully fetched " + timeSeries.length() + " days of historical data from Yahoo Finance");
+            return timeSeries;
+            
+        } catch (IOException e) {
+            Log.e(TAG, "IO error fetching historical data from Yahoo Finance for symbol: " + symbol, e);
+            return null;
+        } catch (Exception e) {
+            Log.e(TAG, "Unexpected error fetching historical data from Yahoo Finance for symbol: " + symbol, e);
+            return null;
+        } finally {
+            // Clean up resources
+            if (reader != null) {
+                try {
+                    reader.close();
+                } catch (IOException e) {
+                    Log.w(TAG, "Error closing reader", e);
+                }
+            }
+            if (connection != null) {
+                connection.disconnect();
+            }
+        }
     }
 
     /**

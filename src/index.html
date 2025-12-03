@@ -478,8 +478,8 @@
             <div class="setting-group">
                 <label for="indexSelect">Index to Track:</label>
                 <select id="indexSelect" onchange="onIndexChange()" style="width: 200px; padding: 5px; border: 1px solid #ddd; border-radius: 3px;">
-                    <option value="SPY">S&P 500 (SPY)</option>
-                    <option value="QQQM">NASDAQ (QQQM)</option>
+                    <option value="$SPX" selected>S&P 500 ($SPX)</option>
+                    <option value="$NASX">NASDAQ ($NASX)</option>
                 </select>
             </div>
             <div class="setting-group">
@@ -489,10 +489,6 @@
             <div class="setting-group">
                 <label for="sellThreshold">Sell Signal (% below SMA):</label>
                 <input type="number" id="sellThreshold" value="3" step="0.1" min="0" max="100">
-            </div>
-            <div class="setting-group">
-                <label for="smaPeriod">SMA Period (days):</label>
-                <input type="number" id="smaPeriod" onchange="updateIndexLabels()" value="200" step="1" min="1" max="500">
             </div>
             <div class="setting-group">
                 <label>Notifications:</label>
@@ -511,13 +507,6 @@
                     </div>
                 </div>
             </div>
-            <div class="setting-group">
-                <label for="apiKey">Alpha Vantage API Key:</label>
-                <input type="password" id="apiKey" placeholder="Enter your API key" style="width: 300px;">
-                <small style="display: block; color: #666; margin-top: 5px;">
-                    Get your free API key from <a href="https://www.alphavantage.co/support/#api-key" target="_blank" style="color: var(--text-secondary); text-decoration: underline;">Alpha Vantage</a>
-                </small>
-            </div>
             <button onclick="fetchData()">Generate Signal</button>
         </div>
 
@@ -528,11 +517,11 @@
             
             <div id="dataDisplay" style="display: none;">
             <div class="data-item">
-                <span class="data-label" id="indexLabel">SPY Current Level:</span>
+                <span class="data-label" id="indexLabel">S&P 500 Current Level:</span>
                 <span class="data-value" id="currentLevel">-</span>
             </div>
                 <div class="data-item">
-                    <span class="data-label" id="smaLabel">200-Day SMA:</span>
+                    <span class="data-label">200-Day SMA:</span>
                     <span class="data-value" id="smaValue">-</span>
                 </div>
                 <div class="data-item">
@@ -590,15 +579,15 @@
 
         // Index configuration
         const indexConfig = {
-            'SPY': {
-                symbol: 'SPY',
+            '$SPX': {
+                symbol: '$SPX',
                 name: 'S&P 500',
-                fullName: 'S&P 500 (SPY)'
+                fullName: 'S&P 500 ($SPX)'
             },
-            'QQQM': {
-                symbol: 'QQQM',
+            '$NASX': {
+                symbol: '$NASX',
                 name: 'NASDAQ',
-                fullName: 'NASDAQ (QQQM)'
+                fullName: 'NASDAQ ($NASX)'
             }
         };
 
@@ -606,22 +595,18 @@
         function updateIndexLabels() {
             const selectedIndex = document.getElementById('indexSelect').value;
             const config = indexConfig[selectedIndex];
-            const smaPeriod = document.getElementById('smaPeriod').value;
             
             document.getElementById('pageTitle').textContent = 'SMA Signal Strategy';
             document.getElementById('indexLabel').textContent = `${config.name} Current Level:`;
-            document.getElementById('smaLabel').textContent = `${smaPeriod}-Day SMA:`;
+            // SMA is always 200-day now, no need to update label
         }
 
         // Handle index change - update labels and auto-generate signal
         function onIndexChange() {
             updateIndexLabels();
             saveSettings();
-            // Auto-generate signal if API key is available
-            const apiKey = document.getElementById('apiKey').value;
-            if (apiKey && apiKey.trim() !== '') {
-                fetchData();
-            }
+            // Auto-generate signal when index changes (no API key needed)
+            fetchData();
         }
 
         // Get default notification time (30 min before NYSE close = 3:30 PM EST/EDT in user's timezone)
@@ -662,22 +647,22 @@
             const buyThreshold = localStorage.getItem('buyThreshold');
             const sellThreshold = localStorage.getItem('sellThreshold');
             const selectedIndex = localStorage.getItem('selectedIndex');
-            const smaPeriod = localStorage.getItem('smaPeriod');
+            // SMA period is always 200 now, no need to load it
             // Notification settings
             const notifFrequency = localStorage.getItem('notifFrequency');
             const notifHour = localStorage.getItem('notifHour');
             const notifMinute = localStorage.getItem('notifMinute');
             
-            // Try to get API key from cookies first, then localStorage as fallback
-            let obfuscatedApiKey = getCookie('apiKey');
-            if (!obfuscatedApiKey) {
-                obfuscatedApiKey = localStorage.getItem('apiKey');
-            }
+            // API key is no longer needed, removed
             
             if (buyThreshold) document.getElementById('buyThreshold').value = buyThreshold;
             if (sellThreshold) document.getElementById('sellThreshold').value = sellThreshold;
-            if (selectedIndex) document.getElementById('indexSelect').value = selectedIndex;
-            if (smaPeriod) document.getElementById('smaPeriod').value = smaPeriod;
+            if (selectedIndex) {
+                document.getElementById('indexSelect').value = selectedIndex;
+            } else {
+                // Default to $SPX if no selection saved
+                document.getElementById('indexSelect').value = '$SPX';
+            }
             // Apply notification settings with defaults
             // Migrate old notifEnabled to new frequency system for backward compatibility
             const oldNotifEnabled = localStorage.getItem('notifEnabled');
@@ -700,10 +685,7 @@
             }
             document.getElementById('notifTime').value = timeValue;
             
-            if (obfuscatedApiKey) {
-                const apiKey = deobfuscateKey(obfuscatedApiKey);
-                document.getElementById('apiKey').value = apiKey;
-            }
+            // API key is no longer needed, removed
             
             updateIndexLabels();
         }
@@ -713,7 +695,7 @@
             localStorage.setItem('buyThreshold', document.getElementById('buyThreshold').value);
             localStorage.setItem('sellThreshold', document.getElementById('sellThreshold').value);
             localStorage.setItem('selectedIndex', document.getElementById('indexSelect').value);
-            localStorage.setItem('smaPeriod', document.getElementById('smaPeriod').value);
+            // SMA period is always 200 now, no need to save it
             // Save notification settings
             localStorage.setItem('notifFrequency', document.getElementById('notifFrequency').value);
             const timeVal = document.getElementById('notifTime').value || '15:30';
@@ -739,25 +721,122 @@
                 }
             }
             
-            const apiKey = document.getElementById('apiKey').value;
-            if (apiKey) {
-                const obfuscatedKey = obfuscateKey(apiKey);
-                // Save to both cookies and localStorage for reliability
-                setCookie('apiKey', obfuscatedKey);
-                localStorage.setItem('apiKey', obfuscatedKey);
-            } else {
-                deleteCookie('apiKey');
-                localStorage.removeItem('apiKey');
-            }
-            
-            // Notify Android to update API key in SharedPreferences
-            if (window.Android && typeof window.Android.updateApiKey === 'function') {
-                try {
-                    window.Android.updateApiKey();
-                    console.log('Successfully called updateApiKey()');
-                } catch (e) {
-                    console.error('Error calling updateApiKey():', e);
+            // API key is no longer needed, removed
+        }
+
+        // Fetch current price and 200-day SMA from barchart.com
+        async function fetchBarchartData(symbol) {
+            try {
+                console.log('Fetching data from barchart.com for symbol:', symbol);
+                
+                // Always try Android interface first (more reliable in WebView)
+                if (window.Android && typeof window.Android.getHistoricalData === 'function') {
+                    console.log('Using Android interface to fetch data from barchart.com');
+                    try {
+                        const dataStr = window.Android.getHistoricalData(symbol);
+                        console.log('Android interface returned:', dataStr);
+                        if (dataStr && dataStr.trim() !== '') {
+                            const data = JSON.parse(dataStr);
+                            if (data.currentPrice && data.sma200) {
+                                console.log('Successfully fetched data via Android interface - Price:', data.currentPrice, ', SMA200:', data.sma200);
+                                return data;
+                            } else {
+                                console.warn('Android interface returned data but missing fields:', data);
+                            }
+                        } else {
+                            console.warn('Android interface returned empty string');
+                        }
+                    } catch (error) {
+                        console.error('Error with Android interface:', error);
+                        console.error('Error details:', error.message, error.stack);
+                    }
+                } else {
+                    console.warn('Android interface not available - window.Android:', typeof window.Android);
+                    if (window.Android) {
+                        console.warn('getHistoricalData type:', typeof window.Android.getHistoricalData);
+                    }
                 }
+                
+                // If we get here, Android interface failed or is not available
+                // Try fetch API as fallback (may fail in WebView due to CORS)
+                console.log('Attempting fetch API as fallback (may fail in WebView)');
+                const url = `https://www.barchart.com/stocks/quotes/${symbol}/technical-analysis`;
+                
+                try {
+                    const response = await fetch(url, {
+                        headers: {
+                            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+                            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36'
+                        }
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`Barchart.com API returned error: ${response.status} ${response.statusText}`);
+                    }
+                    
+                    const html = await response.text();
+                    
+                    // Extract current price from JSON data in script tag
+                    let currentPrice = 0;
+                    try {
+                        // Try to match "lastPrice":23413.67 or "lastPrice":"23,413.67" or "lastPrice": "23413.67"
+                        // Pattern: "lastPrice": followed by optional whitespace, optional quote, number with commas and decimals, optional quote
+                        // Use a more explicit pattern that handles quoted strings properly
+                        let bcDataMatch = html.match(/"lastPrice"\s*:\s*"([^"]+)"/);  // Try quoted first
+                        if (!bcDataMatch) {
+                            bcDataMatch = html.match(/"lastPrice"\s*:\s*([0-9,]+\.?[0-9]*)/);  // Try unquoted
+                        }
+                        
+                        if (bcDataMatch && bcDataMatch[1]) {
+                            // Remove commas from the number string before parsing
+                            const priceStr = bcDataMatch[1].replace(/,/g, '');
+                            currentPrice = parseFloat(priceStr);
+                            if (!isNaN(currentPrice) && currentPrice > 0) {
+                                console.log('Extracted current price:', currentPrice, 'from string:', bcDataMatch[1]);
+                            } else {
+                                console.warn('Invalid price extracted:', priceStr, 'from:', bcDataMatch[1]);
+                            }
+                        } else {
+                            console.warn('No match found for lastPrice in HTML');
+                            // Try to find any occurrence of lastPrice for debugging
+                            const debugMatch = html.match(/"lastPrice"[^}]{0,100}/);
+                            if (debugMatch) {
+                                console.warn('Found lastPrice context:', debugMatch[0]);
+                            }
+                        }
+                    } catch (error) {
+                        console.warn('Failed to extract current price from JSON', error);
+                    }
+                    
+                    // Extract 200-day SMA from HTML table
+                    let sma200 = 0;
+                    try {
+                        const smaMatch = html.match(/<td>200-Day<\/td>\s*<td[^>]*>\s*([\d,]+\.?\d*)\s*<\/td>/);
+                        if (smaMatch && smaMatch[1]) {
+                            sma200 = parseFloat(smaMatch[1].replace(/,/g, ''));
+                            console.log('Extracted 200-day SMA:', sma200);
+                        }
+                    } catch (error) {
+                        console.warn('Failed to extract 200-day SMA from HTML', error);
+                    }
+                    
+                    if (currentPrice <= 0 || sma200 <= 0) {
+                        throw new Error('Failed to extract valid data - currentPrice: ' + currentPrice + ', sma200: ' + sma200);
+                    }
+                    
+                    console.log('Successfully fetched data from barchart.com via fetch - Price:', currentPrice, ', SMA200:', sma200);
+                    return { currentPrice: currentPrice, sma200: sma200 };
+                } catch (fetchError) {
+                    console.error('Fetch API also failed:', fetchError);
+                    throw new Error('Both Android interface and fetch API failed. Android interface error: ' + 
+                                  (window.Android ? 'available but returned invalid data' : 'not available') + 
+                                  '. Fetch error: ' + fetchError.message);
+                }
+                
+            } catch (error) {
+                console.error('Error fetching data from barchart.com:', error);
+                console.error('Error details:', error.message, error.stack);
+                throw new Error('Failed to fetch data from barchart.com: ' + error.message);
             }
         }
 
@@ -790,14 +869,8 @@
             }
         }
 
-        // Fetch data from Alpha Vantage API
+        // Fetch data from Yahoo Finance API
         async function fetchData() {
-            const apiKey = document.getElementById('apiKey').value;
-            if (!apiKey) {
-                showError('Please enter your Alpha Vantage API key');
-                return;
-            }
-
             saveSettings();
             showLoading();
 
@@ -806,80 +879,18 @@
                 const selectedIndex = document.getElementById('indexSelect').value;
                 const config = indexConfig[selectedIndex];
                 
-                // Fetch index data
-                const response = await fetch(`https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${config.symbol}&apikey=${apiKey}&outputsize=full`);
-                const data = await response.json();
-
-                if (data['Error Message']) {
-                    throw new Error(data['Error Message']);
-                }
-
-                // Check for time series data first - if it exists, process it regardless of other fields
-                const timeSeries = data['Time Series (Daily)'];
-                if (!timeSeries) {
-                    // No data - check for rate limit or other error messages
-                    if (data['Information']) {
-                        const information = data['Information'];
-                        // Check if this is a rate limit message
-                        if (information.toLowerCase().includes('rate limit') || information.toLowerCase().includes('requests per day')) {
-                            throw new Error('API rate limit reached. Will retry automatically tomorrow.');
-                        }
-                        // For other information messages when no data, treat as error
-                        throw new Error('API Information: ' + information);
-                    }
-                    
-                    if (data['Note']) {
-                        throw new Error('API call frequency limit reached. Please try again later.');
-                    }
-                    
-                    throw new Error('No data received from API');
+                // Fetch current price and 200-day SMA from barchart.com
+                console.log('Fetching data from barchart.com for symbol:', config.symbol);
+                const barchartData = await fetchBarchartData(config.symbol);
+                
+                if (!barchartData || !barchartData.currentPrice || !barchartData.sma200) {
+                    throw new Error('No valid data received from barchart.com');
                 }
                 
-                // If we have data, log any information messages but continue processing
-                if (data['Information']) {
-                    console.warn('API Information (data still available):', data['Information']);
-                }
+                const currentPrice = barchartData.currentPrice;
+                const sma = barchartData.sma200;
 
-                // Get SMA period and calculate SMA from historical data
-                const smaPeriod = parseInt(document.getElementById('smaPeriod').value);
-                const sma = calculateSMA(timeSeries, smaPeriod);
-
-                // Get current/latest price from Yahoo Finance (real-time)
-                let currentPrice = 0;
-                console.log('Checking for Android interface...');
-                console.log('window.Android exists:', typeof window.Android !== 'undefined');
-                console.log('window.Android.getLatestPrice type:', typeof (window.Android && window.Android.getLatestPrice));
-                
-                if (window.Android && typeof window.Android.getLatestPrice === 'function') {
-                    console.log('Calling window.Android.getLatestPrice for symbol:', config.symbol);
-                    try {
-                        const latestPriceStr = window.Android.getLatestPrice(config.symbol);
-                        console.log('getLatestPrice returned:', latestPriceStr);
-                        const latestPrice = parseFloat(latestPriceStr);
-                        if (latestPrice > 0) {
-                            currentPrice = latestPrice;
-                            console.log('Got latest price from Yahoo Finance: ' + currentPrice);
-                        } else {
-                            // Fallback to most recent close from Alpha Vantage
-                            console.warn('Yahoo Finance returned 0 or invalid, using most recent close from Alpha Vantage');
-                            const dates = Object.keys(timeSeries).sort().reverse();
-                            const currentData = timeSeries[dates[0]];
-                            currentPrice = parseFloat(currentData['4. close']);
-                        }
-                    } catch (error) {
-                        console.error('Error calling getLatestPrice:', error);
-                        // Fallback to most recent close from Alpha Vantage
-                        const dates = Object.keys(timeSeries).sort().reverse();
-                        const currentData = timeSeries[dates[0]];
-                        currentPrice = parseFloat(currentData['4. close']);
-                    }
-                } else {
-                    // Fallback to most recent close from Alpha Vantage if Android interface not available
-                    console.warn('Android interface not available, using most recent close from Alpha Vantage');
-                    const dates = Object.keys(timeSeries).sort().reverse();
-                    const currentData = timeSeries[dates[0]];
-                    currentPrice = parseFloat(currentData['4. close']);
-                }
+                // currentPrice and sma are already extracted from barchartData above
 
                 // Get thresholds
                 const buyThreshold = parseFloat(document.getElementById('buyThreshold').value);
@@ -935,15 +946,12 @@
         }
 
 
-        // Auto-fetch data if API key is available
+        // Auto-fetch data on page load (no API key required for Yahoo Finance)
         function autoFetchIfReady() {
-            const apiKey = document.getElementById('apiKey').value;
-            if (apiKey && apiKey.trim() !== '') {
                 // Small delay to ensure UI is fully loaded
                 setTimeout(() => {
                     fetchData();
                 }, 500);
-            }
         }
 
 
@@ -974,35 +982,7 @@
                 });
             }
             
-            // Add event listener to API key input to update Android immediately when changed
-            const apiKeyInput = document.getElementById('apiKey');
-            if (apiKeyInput) {
-                apiKeyInput.addEventListener('blur', function() {
-                    // Update when user leaves the field (on blur)
-                    console.log('API key field blurred, updating Android');
-                    if (window.Android && typeof window.Android.updateApiKey === 'function') {
-                        try {
-                            window.Android.updateApiKey();
-                            console.log('Successfully called updateApiKey() on blur');
-                        } catch (e) {
-                            console.error('Error calling updateApiKey():', e);
-                        }
-                    }
-                });
-                // Also update when Enter is pressed
-                apiKeyInput.addEventListener('keypress', function(e) {
-                    if (e.key === 'Enter') {
-                        if (window.Android && typeof window.Android.updateApiKey === 'function') {
-                            try {
-                                window.Android.updateApiKey();
-                                console.log('Successfully called updateApiKey() on Enter');
-                            } catch (e) {
-                                console.error('Error calling updateApiKey():', e);
-                            }
-                        }
-                    }
-                });
-            }
+            // API key input removed, no event listeners needed
         };
 
     </script>

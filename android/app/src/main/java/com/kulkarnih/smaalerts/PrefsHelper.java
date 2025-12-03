@@ -7,7 +7,7 @@ public final class PrefsHelper {
     private static final String PREFS = "sma_alerts_prefs";
 
     public static final String KEY_API = "apiKey"; // store deobfuscated
-    public static final String KEY_INDEX = "selectedIndex"; // SPY or QQQM
+    public static final String KEY_INDEX = "selectedIndex"; // $SPX or $NASX
     public static final String KEY_BUY = "buyThreshold"; // float percent
     public static final String KEY_SELL = "sellThreshold"; // float percent
     public static final String KEY_SMA = "smaPeriod"; // int

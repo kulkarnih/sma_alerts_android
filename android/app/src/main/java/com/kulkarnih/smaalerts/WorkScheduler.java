@@ -59,15 +59,7 @@ public final class WorkScheduler {
             Duration delay = calculateDelayUntilNextRun(context);
             long delayMs = delay.toMillis();
             
-            // Check if API key is missing - if so, add extra delay to give user time to set it
-            String apiKey = PrefsHelper.getString(context, PrefsHelper.KEY_API, "");
-            if (apiKey == null || apiKey.isEmpty()) {
-                long minDelayForSetup = 5 * 60 * 1000; // 5 minutes minimum if API key is missing
-                if (delayMs < minDelayForSetup) {
-                    Log.w(TAG, "API key missing and delay too short, using " + (minDelayForSetup / 1000 / 60) + " minute delay to allow setup");
-                    delayMs = minDelayForSetup;
-                }
-            }
+            // API key is no longer needed, removed check
             
             // Ensure delay is within reasonable bounds
             if (delayMs < MIN_DELAY_MS) {

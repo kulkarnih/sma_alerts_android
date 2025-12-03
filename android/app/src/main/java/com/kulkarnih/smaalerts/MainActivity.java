@@ -48,7 +48,7 @@ public class MainActivity extends BridgeActivity {
                 captureKey("buyThreshold", PrefsHelper.KEY_BUY);
                 captureKey("sellThreshold", PrefsHelper.KEY_SELL);
                 captureKey("selectedIndex", PrefsHelper.KEY_INDEX);
-                captureKey("smaPeriod", PrefsHelper.KEY_SMA);
+                // SMA period is always 200 now, no need to capture it
                 // Notification frequency (new dropdown-based system)
                 captureKey("notifFrequency", PrefsHelper.KEY_NOTIF_FREQUENCY);
                 // Notification time (stored as hour/min separate values)
@@ -62,14 +62,7 @@ public class MainActivity extends BridgeActivity {
                         WorkScheduler.scheduleDailyAnalysis(this);
                     } catch (Exception ignored) {}
                 });
-                // API key is stored obfuscated; the web app deobfuscates into the input
-                // We read the visible input value instead of localStorage cookie
-                evalJS("(function(){var el=document.getElementById('apiKey');return el?el.value:'';})()", val -> {
-                    if (val != null) {
-                        String clean = trimQuotes(val);
-                        if (!clean.isEmpty()) PrefsHelper.putString(this, PrefsHelper.KEY_API, clean);
-                    }
-                });
+                // API key is no longer needed, removed
             }
         }, 2000);
     }
@@ -105,6 +98,7 @@ public class MainActivity extends BridgeActivity {
                     "    console.log('Android interface is available');" +
                     "    console.log('rescheduleNotifications type:', typeof window.Android.rescheduleNotifications);" +
                     "    console.log('getLatestPrice type:', typeof window.Android.getLatestPrice);" +
+                    "    console.log('getHistoricalData type:', typeof window.Android.getHistoricalData);" +
                     "    console.log('updateApiKey type:', typeof window.Android.updateApiKey);" +
                     "  } else {" +
                     "    console.warn('Android interface still not available');" +
@@ -217,54 +211,28 @@ public class MainActivity extends BridgeActivity {
                 }
                 rescheduleIfComplete.run();
             });
-            // Also capture API key to ensure it's available before scheduling
-            evalJS("(function(){var el=document.getElementById('apiKey');return el?el.value:'';})()", val -> {
-                if (val != null) {
-                    String clean = trimQuotes(val);
-                    if (!clean.isEmpty()) {
-                        PrefsHelper.putString(this, PrefsHelper.KEY_API, clean);
-                        Log.d(TAG, "API key captured during reschedule");
-                    } else {
-                        Log.d(TAG, "API key not yet set in UI");
-                    }
-                }
-                rescheduleIfComplete.run();
-            });
+            // API key is no longer needed, removed
+            rescheduleIfComplete.run();
         });
     }
 
     /**
      * Called from JavaScript when API key is updated
-     * Updates the API key in SharedPreferences
+     * No longer needed - API key removed. Kept for backward compatibility.
+     * @deprecated API key is no longer used
      */
+    @Deprecated
     @android.webkit.JavascriptInterface
     public void updateApiKey() {
-        Log.d(TAG, "updateApiKey() called from JavaScript");
-        
-        // Run on main thread since WebView operations must be on the main thread
-        runOnUiThread(() -> {
-            // Read API key from the input field
-            evalJS("(function(){var el=document.getElementById('apiKey');return el?el.value:'';})()", val -> {
-                if (val != null) {
-                    String clean = trimQuotes(val);
-                    if (!clean.isEmpty()) {
-                        PrefsHelper.putString(this, PrefsHelper.KEY_API, clean);
-                        Log.i(TAG, "API key updated from UI");
-                    } else {
-                        // Clear API key if empty
-                        PrefsHelper.putString(this, PrefsHelper.KEY_API, "");
-                        Log.d(TAG, "API key cleared");
-                    }
-                }
-            });
-        });
+        Log.d(TAG, "updateApiKey() called but API key is no longer needed");
+        // No-op: API key is no longer used
     }
 
     /**
      * Called from JavaScript to get the latest real-time stock price from Yahoo Finance API.
      * Returns the price as a string, or "0" if the price cannot be retrieved.
      * 
-     * @param symbol The stock symbol (e.g., "SPY", "QQQM")
+     * @param symbol The stock symbol (e.g., "$SPX", "$NASX")
      * @return The latest price as a string, or "0" if unavailable
      */
     @android.webkit.JavascriptInterface
@@ -297,7 +265,7 @@ public class MainActivity extends BridgeActivity {
      * Fetches the latest real-time stock price from Yahoo Finance API using direct HTTP request.
      * Returns 0.0 if the price cannot be retrieved.
      * 
-     * @param symbol The stock symbol (e.g., "SPY", "QQQM")
+     * @param symbol The stock symbol (e.g., "$SPX", "$NASX")
      * @return The latest price, or 0.0 if unavailable
      */
     private double fetchLatestPrice(String symbol) {
@@ -396,6 +364,40 @@ public class MainActivity extends BridgeActivity {
             if (connection != null) {
                 connection.disconnect();
             }
+        }
+    }
+
+    /**
+     * Called from JavaScript to get current price and 200-day SMA from barchart.com.
+     * Returns the data as a JSON string with "currentPrice" and "sma200" keys, or empty string if unavailable.
+     * 
+     * @param symbol The stock symbol (e.g., "$SPX", "$NASX")
+     * @return Data as JSON string, or empty string if unavailable
+     */
+    @android.webkit.JavascriptInterface
+    public String getHistoricalData(String symbol) {
+        Log.i(TAG, "=== getHistoricalData() ENTRY POINT - called from JavaScript ===");
+        Log.i(TAG, "Symbol received: " + symbol);
+        
+        try {
+            if (symbol == null || symbol.isEmpty()) {
+                Log.e(TAG, "Invalid symbol provided: " + symbol);
+                return "";
+            }
+            
+            // Use the same method from SMAWorker
+            JSONObject barchartData = SMAWorker.getBarchartData(symbol);
+            if (barchartData == null || !barchartData.has("currentPrice") || !barchartData.has("sma200")) {
+                Log.w(TAG, "Failed to get data from barchart.com for symbol: " + symbol);
+                return "";
+            }
+            
+            Log.i(TAG, "Got data from barchart.com for " + symbol + " - Price: " + 
+                  barchartData.getDouble("currentPrice") + ", SMA200: " + barchartData.getDouble("sma200"));
+            return barchartData.toString();
+        } catch (Exception e) {
+            Log.e(TAG, "Error in getHistoricalData for symbol: " + symbol, e);
+            return "";
         }
     }
 }

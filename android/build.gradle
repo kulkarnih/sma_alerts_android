@@ -5,6 +5,7 @@ buildscript {
     repositories {
         google()
         mavenCentral()
+        gradlePluginPortal()
     }
     dependencies {
         classpath 'com.android.tools.build:gradle:8.7.2'
@@ -19,8 +20,10 @@ apply from: "variables.gradle"
 
 allprojects {
     repositories {
+        // Try Google's Maven first (it mirrors many Kotlin and Android dependencies)
         google()
         mavenCentral()
+        gradlePluginPortal()
         maven { url 'https://jitpack.io' }  // For Yahoo Finance API library
     }
     

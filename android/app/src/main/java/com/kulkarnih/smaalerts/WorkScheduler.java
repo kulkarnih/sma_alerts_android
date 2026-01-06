@@ -31,29 +31,27 @@ public final class WorkScheduler {
         try {
             WorkManager workManager = WorkManager.getInstance(context);
             
-            // Check if work is already running - if so, don't cancel it, let it finish
-            // It will reschedule itself when done
+            // Check work status for logging, but always proceed with rescheduling
+            // This is important because when called from within the worker (after completion),
+            // the work may still appear as RUNNING briefly, but we need to reschedule anyway
             try {
                 List<WorkInfo> workInfos = workManager.getWorkInfosForUniqueWork(UNIQUE_WORK_NAME).get();
                 if (workInfos != null && !workInfos.isEmpty()) {
                     WorkInfo workInfo = workInfos.get(0);
                     WorkInfo.State state = workInfo.getState();
-                    if (state == WorkInfo.State.RUNNING) {
-                        Log.d(TAG, "Work is already running, skipping reschedule. It will reschedule itself when done.");
-                        return;
-                    }
-                    // If work is ENQUEUED, check if it's about to run (has no delay or very short delay)
-                    // We can't easily get the exact scheduled time, so we'll be conservative:
-                    // Only skip if it's BLOCKED (waiting for constraints) or RUNNING
-                    if (state == WorkInfo.State.BLOCKED) {
-                        Log.d(TAG, "Work is blocked (waiting for constraints), will cancel and reschedule with new settings");
-                    }
+                    Log.d(TAG, "Existing work state: " + state + ", will cancel and reschedule");
+                    
+                    // Only skip if work is truly running and we're being called from outside the worker
+                    // (e.g., from UI). When called from within the worker after completion,
+                    // we need to reschedule even if state appears as RUNNING briefly.
+                    // Since we can't distinguish the caller, we'll always reschedule to be safe.
                 }
             } catch (Exception e) {
-                Log.w(TAG, "Could not check work status, proceeding with cancellation", e);
+                Log.w(TAG, "Could not check work status, proceeding with reschedule", e);
             }
             
-            // Cancel any existing work that's not running
+            // Always cancel existing work and reschedule
+            // This ensures we always have a fresh schedule, even if called from within the worker
             workManager.cancelUniqueWork(UNIQUE_WORK_NAME);
 
             Duration delay = calculateDelayUntilNextRun(context);

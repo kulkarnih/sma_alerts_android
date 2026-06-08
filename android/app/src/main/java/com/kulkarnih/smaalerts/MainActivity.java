@@ -232,7 +232,7 @@ public class MainActivity extends BridgeActivity {
      * Called from JavaScript to get the latest real-time stock price from Yahoo Finance API.
      * Returns the price as a string, or "0" if the price cannot be retrieved.
      * 
-     * @param symbol The stock symbol (e.g., "$SPX", "$NASX")
+     * @param symbol The stock symbol (e.g., "$SPX", "$NASX", "URTH")
      * @return The latest price as a string, or "0" if unavailable
      */
     @android.webkit.JavascriptInterface
@@ -265,7 +265,7 @@ public class MainActivity extends BridgeActivity {
      * Fetches the latest real-time stock price from Yahoo Finance API using direct HTTP request.
      * Returns 0.0 if the price cannot be retrieved.
      * 
-     * @param symbol The stock symbol (e.g., "$SPX", "$NASX")
+     * @param symbol The stock symbol (e.g., "$SPX", "$NASX", "URTH")
      * @return The latest price, or 0.0 if unavailable
      */
     private double fetchLatestPrice(String symbol) {
@@ -371,7 +371,7 @@ public class MainActivity extends BridgeActivity {
      * Called from JavaScript to get current price and 200-day SMA from barchart.com.
      * Returns the data as a JSON string with "currentPrice" and "sma200" keys, or empty string if unavailable.
      * 
-     * @param symbol The stock symbol (e.g., "$SPX", "$NASX")
+     * @param symbol The stock symbol (e.g., "$SPX", "$NASX", "URTH")
      * @return Data as JSON string, or empty string if unavailable
      */
     @android.webkit.JavascriptInterface

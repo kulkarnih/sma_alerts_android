@@ -480,6 +480,7 @@
                 <select id="indexSelect" onchange="onIndexChange()" style="width: 200px; padding: 5px; border: 1px solid #ddd; border-radius: 3px;">
                     <option value="$SPX" selected>S&P 500 ($SPX)</option>
                     <option value="$NASX">NASDAQ ($NASX)</option>
+                    <option value="URTH">MSCI World (URTH)</option>
                 </select>
             </div>
             <div class="setting-group">
@@ -588,6 +589,11 @@
                 symbol: '$NASX',
                 name: 'NASDAQ',
                 fullName: 'NASDAQ ($NASX)'
+            },
+            'URTH': {
+                symbol: 'URTH',
+                name: 'MSCI World',
+                fullName: 'MSCI World (URTH)'
             }
         };
 

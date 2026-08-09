@@ -1,996 +1,1572 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>SMA Alerts</title>
-    <!-- Icon references removed - icon.svg doesn't exist and was causing Capacitor asset loading errors -->
-    <style>
-        :root {
-            /* Default Light Theme */
-            --bg-primary: #f8f9fa;
-            --bg-secondary: #ffffff;
-            --bg-accent: #e9ecef;
-            --text-primary: #212529;
-            --text-secondary: #6c757d;
-            --text-muted: #adb5bd;
-            --border-color: #dee2e6;
-            --shadow: 0 2px 10px rgba(0,0,0,0.1);
-            --shadow-hover: 0 4px 20px rgba(0,0,0,0.15);
-            --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            --gradient-success: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-            --gradient-danger: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
-            --gradient-warning: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            --gradient-info: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>SMA Signals</title>
+  <style>
+    /* ── Tokens ── */
+    :root {
+      --bg:         #FFFFFF;
+      --bg-subtle:  #FAFAFA;
+      --surface:    #FFFFFF;
+      --border:     #E5E5E5;
+      --border-mid: #D4D4D4;
 
+      --text:       #111111;
+      --text-2:     #404040;
+      --text-3:     #737373;
+      --text-muted: #A3A3A3;
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 10px;
-            padding-top: calc(10px + env(safe-area-inset-top));
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            transition: all 0.3s ease;
-            min-height: 100vh;
-        }
+      --accent:     #000000;
+      --accent-fg:  #FFFFFF;
 
-        /* Responsive design */
-        @media (max-width: 768px) {
-            body {
-                padding: 5px;
-                padding-top: calc(5px + env(safe-area-inset-top));
-            }
-        }
+      --buy:        #16A34A;
+      --buy-bg:     #F0FDF4;
+      --sell:       #DC2626;
+      --sell-bg:    #FFF1F2;
+      --hold:       #737373;
+      --hold-bg:    #F5F5F5;
 
-        @media (max-width: 480px) {
-            body {
-                padding: 2px;
-                padding-top: calc(2px + env(safe-area-inset-top));
-            }
-        }
-        .container {
-            background: var(--bg-secondary);
-            padding: 20px;
-            border-radius: 15px;
-            box-shadow: var(--shadow);
-            border: 1px solid var(--border-color);
-            transition: all 0.3s ease;
-        }
+      --radius:     12px;
+      --radius-sm:  8px;
+    }
 
-        .container:hover {
-            box-shadow: var(--shadow-hover);
-            transform: translateY(-1px);
-        }
+    /* ── Reset ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        @media (max-width: 768px) {
-            .container {
-                padding: 15px;
-                border-radius: 12px;
-            }
-        }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      padding-top: env(safe-area-inset-top);
+      overscroll-behavior: none;
+    }
 
-        @media (max-width: 480px) {
-            .container {
-                padding: 10px;
-                border-radius: 10px;
-            }
-        }
+    .page {
+      max-width: 480px;
+      margin: 0 auto;
+      /* bottom pad = refresh-bar height (~73px) + safe area */
+      padding: 20px 16px calc(73px + env(safe-area-inset-bottom));
+    }
 
-        h1 {
-            background: var(--gradient-primary);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            text-align: center;
-            margin-top: 10px;
-            margin-bottom: 20px;
-            font-size: 1.8rem;
-            font-weight: 700;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
+    /* ── Header ── */
+    .header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
 
-        @media (max-width: 768px) {
-            h1 {
-                font-size: 1.5rem;
-                margin-bottom: 15px;
-            }
-        }
+    .header-title {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.8px;
+      line-height: 1.1;
+      color: var(--text);
+    }
 
-        @media (max-width: 480px) {
-            h1 {
-                font-size: 1.3rem;
-                margin-bottom: 10px;
-            }
-        }
+    .header-sub {
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--text-3);
+      margin-top: 3px;
+    }
 
+    .header-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-top: 2px;
+    }
 
-        .settings {
-            background: var(--bg-accent);
-            padding: 15px;
-            border-radius: 12px;
-            margin-bottom: 15px;
-            border: 1px solid var(--border-color);
-        }
+    .icon-btn {
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1.5px solid var(--border-mid);
+      border-radius: 50%;
+      background: var(--surface);
+      cursor: pointer;
+      color: var(--text-3);
+      flex-shrink: 0;
+      -webkit-tap-highlight-color: transparent;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .icon-btn:active { border-color: var(--text); color: var(--text); }
 
-        @media (max-width: 768px) {
-            .settings {
-                padding: 12px;
-                margin-bottom: 12px;
-            }
-        }
+    /* ── Filter bar ── */
+    .filter-bar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .filter-bar::-webkit-scrollbar { display: none; }
 
-        @media (max-width: 480px) {
-            .settings {
-                padding: 10px;
-                margin-bottom: 10px;
-            }
-        }
+    .filter-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 34px;
+      padding: 0 14px;
+      border-radius: 34px;
+      border: 1.5px solid var(--border-mid);
+      background: var(--surface);
+      color: var(--text-3);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+      letter-spacing: -0.1px;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .filter-chip.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--accent-fg);
+    }
 
-        .setting-group {
-            margin-bottom: 12px;
-        }
+    .chip-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .chip-dot.buy  { background: var(--buy); }
+    .chip-dot.hold { background: var(--hold); }
+    .chip-dot.sell { background: var(--sell); }
+    .filter-chip.active .chip-dot { display: none; }
 
-        @media (max-width: 768px) {
-            .setting-group {
-                margin-bottom: 10px;
-            }
-        }
+    /* ── Cards ── */
+    /* Outer card is the clip container; inner card is what slides */
+    .index-card {
+      position: relative;
+      overflow: hidden;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 10px;
+    }
 
-        label {
-            display: inline-block;
-            width: 180px;
-            font-weight: 600;
-            color: var(--text-primary);
-            margin-bottom: 3px;
-            font-size: 14px;
-        }
+    /* Swipe-reveal action strip (sits behind card-inner on the right) */
+    .swipe-actions {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      display: flex;
+      align-items: stretch;
+    }
 
-        @media (max-width: 768px) {
-            label {
-                width: 150px;
-                font-size: 13px;
-            }
-        }
+    .action-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      width: 80px;
+      border: none;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      cursor: pointer;
+      color: white;
+      -webkit-tap-highlight-color: transparent;
+    }
 
-        @media (max-width: 480px) {
-            label {
-                width: 120px;
-                font-size: 12px;
-            }
-        }
+    .action-notif  { background: #3A3A3A; }
+    .action-delete { background: var(--sell); }
 
-        input[type="number"], input[type="text"], input[type="password"], select {
-            width: 180px;
-            padding: 8px 12px;
-            border: 2px solid var(--border-color);
-            border-radius: 8px;
-            background: var(--bg-secondary);
-            color: var(--text-primary);
-            font-size: 13px;
-            transition: all 0.3s ease;
-        }
+    .notif-bell {
+      color: var(--text-muted);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+    }
 
-        @media (max-width: 768px) {
-            input[type="number"], input[type="text"], input[type="password"], select {
-                width: 150px;
-                padding: 6px 10px;
-                font-size: 12px;
-            }
-        }
+    /* The sliding face of the card */
+    .card-inner {
+      background: var(--surface);
+      position: relative;
+      z-index: 1;
+      border-radius: calc(var(--radius) - 2px);
+      transform: translateX(0);
+      will-change: transform;
+    }
 
-        @media (max-width: 480px) {
-            input[type="number"], input[type="text"], input[type="password"], select {
-                width: 120px;
-                padding: 5px 8px;
-                font-size: 11px;
-            }
-        }
+    .card-main {
+      display: flex;
+      align-items: center;
+      padding: 16px;
+      gap: 12px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
 
-        input[type="number"]:focus, input[type="text"]:focus, input[type="password"]:focus, select:focus {
-            outline: none;
-            border-color: var(--text-secondary);
-            box-shadow: 0 0 0 3px rgba(0,0,0,0.1);
-            transform: translateY(-1px);
-        }
+    .card-info { flex: 1; min-width: 0; }
 
-        button {
-            background: var(--gradient-primary);
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 20px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
-            box-shadow: var(--shadow);
-            transition: all 0.3s ease;
-            text-transform: uppercase;
-            letter-spacing: 0.3px;
-        }
+    .card-name {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      color: var(--text);
+    }
+    .card-symbol {
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--text-3);
+      margin-top: 2px;
+    }
 
-        @media (max-width: 768px) {
-            button {
-                padding: 8px 16px;
-                font-size: 13px;
-            }
-        }
+    .card-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 5px;
+      flex-shrink: 0;
+    }
 
-        @media (max-width: 480px) {
-            button {
-                padding: 6px 12px;
-                font-size: 12px;
-            }
-        }
+    .signal-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .signal-badge.buy      { background: var(--buy-bg);  color: var(--buy); }
+    .signal-badge.hold     { background: var(--hold-bg); color: var(--hold); }
+    .signal-badge.sell,
+    .signal-badge.sell-80,
+    .signal-badge.sell-all { background: var(--sell-bg); color: var(--sell); }
 
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-hover);
-        }
+    .card-pct {
+      font-size: 13px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-3);
+    }
+    .card-pct.up   { color: var(--buy); }
+    .card-pct.down { color: var(--sell); }
 
-        button:active {
-            transform: translateY(0);
-        }
-        .data-section {
-            margin-top: 15px;
-        }
+    .card-chevron {
+      color: var(--text-muted);
+      flex-shrink: 0;
+      transition: transform 0.2s ease;
+    }
+    .card-chevron.open { transform: rotate(180deg); }
 
-        .data-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 15px;
-            margin-bottom: 8px;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
-            border-radius: 10px;
-            transition: all 0.3s ease;
-        }
+    /* Loading */
+    .card-loading {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-left: auto;
+    }
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--border-mid);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .card-loading-text { font-size: 13px; color: var(--text-muted); }
 
-        @media (max-width: 768px) {
-            .data-item {
-                padding: 8px 12px;
-                margin-bottom: 6px;
-            }
-        }
+    /* Error */
+    .card-error {
+      margin-left: auto;
+      text-align: right;
+      font-size: 13px;
+      color: var(--sell);
+      line-height: 1.5;
+    }
 
-        @media (max-width: 480px) {
-            .data-item {
-                padding: 6px 10px;
-                margin-bottom: 5px;
-            }
-        }
+    /* Expand */
+    .card-detail {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.22s ease;
+    }
+    .card-detail.open { max-height: 300px; }
 
-        .data-item:hover {
-            transform: translateX(5px);
-            box-shadow: var(--shadow);
-        }
+    /* Toggle — used both in settings and on cards */
+    .toggle {
+      position: relative;
+      width: 46px;
+      height: 26px;
+      border-radius: 13px;
+      background: var(--border-mid);
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background 0.18s;
+    }
+    .toggle.on { background: var(--accent); }
+    .toggle-thumb {
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+      transition: transform 0.18s;
+    }
+    .toggle.on .toggle-thumb { transform: translateX(20px); }
 
-        .data-label {
-            font-weight: 600;
-            color: var(--text-primary);
-            font-size: 14px;
-        }
+    .detail-inner {
+      border-top: 1.5px solid var(--border);
+      margin: 0 16px;
+      padding: 8px 0;
+    }
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 7px 0;
+    }
+    .detail-row + .detail-row { border-top: 1px solid var(--border); }
+    .detail-label { font-size: 14px; font-weight: 400; color: var(--text-3); }
+    .detail-value { font-size: 14px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
 
-        .data-value {
-            color: var(--text-secondary);
-            font-weight: 500;
-            font-size: 14px;
-        }
+    .detail-actions {
+      display: flex;
+      border-top: 1.5px solid var(--border);
+      margin: 0 16px;
+    }
+    .detail-action-btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 12px 0;
+      background: none;
+      border: none;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-3);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .detail-action-remove {
+      border-left: 1px solid var(--border);
+      color: var(--sell);
+    }
 
-        @media (max-width: 768px) {
-            .data-label, .data-value {
-                font-size: 13px;
-            }
-        }
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 48px 20px;
+      color: var(--text-3);
+      font-size: 15px;
+      line-height: 1.7;
+    }
 
-        @media (max-width: 480px) {
-            .data-label, .data-value {
-                font-size: 12px;
-            }
-        }
-        .signal {
-            text-align: center;
-            padding: 14px;
-            margin: 10px 0;
-            border-radius: 15px;
-            font-size: 18px;
-            font-weight: 700;
-            box-shadow: var(--shadow);
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        }
+    /* ── Sticky Refresh bar ── */
+    .refresh-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+      padding: 12px 16px;
+      padding-bottom: calc(12px + env(safe-area-inset-bottom));
+      z-index: 50;
+    }
 
-        @media (max-width: 768px) {
-            .signal {
-                padding: 12px;
-                margin: 8px 0;
-                font-size: 16px;
-            }
-        }
+    .refresh-btn {
+      width: 100%;
+      padding: 14px;
+      background: var(--accent);
+      color: var(--accent-fg);
+      border: none;
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.2px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: opacity 0.15s;
+    }
+    .refresh-btn:active   { opacity: 0.8; }
+    .refresh-btn:disabled { opacity: 0.4; cursor: default; }
 
-        @media (max-width: 480px) {
-            .signal {
-                padding: 10px;
-                margin: 6px 0;
-                font-size: 14px;
-            }
-        }
+    .last-updated {
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 400;
+      margin-bottom: 8px;
+      min-height: 16px;
+    }
 
-        .signal::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-            transition: left 0.5s;
-        }
+    /* ── Bottom sheet shared styles ── */
+    .overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.35);
+      z-index: 100;
+      backdrop-filter: blur(1px);
+      -webkit-backdrop-filter: blur(1px);
+      align-items: flex-end;
+    }
+    .overlay.open    { display: flex; animation: overlayIn  0.22s ease forwards; }
+    .overlay.closing { display: flex; animation: overlayOut 0.22s ease forwards; }
+    @keyframes overlayIn  { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes overlayOut { from { opacity: 1; } to { opacity: 0; } }
 
-        .signal:hover::before {
-            left: 100%;
-        }
+    .sheet {
+      background: var(--surface);
+      border-radius: 20px 20px 0 0;
+      width: 100%;
+      max-width: 480px;
+      margin: 0 auto;
+      padding-bottom: env(safe-area-inset-bottom);
+      max-height: 88vh;
+      overflow-y: auto;
+      animation: slideUp 0.25s cubic-bezier(0.32, 0.72, 0, 1);
+    }
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to   { transform: translateY(0); }
+    }
+    @keyframes slideDown {
+      from { transform: translateY(0); }
+      to   { transform: translateY(100%); }
+    }
+    .sheet.closing {
+      animation: slideDown 0.22s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+    }
 
-        .signal.buy {
-            background: var(--gradient-success);
-            color: white;
-            border: none;
-            animation: pulse 2s infinite;
-        }
+    /* Swipe close spring — bounces within the negative range, no overflow tricks needed */
+    @keyframes springClose {
+      0%   { transform: translateX(-160px); }
+      55%  { transform: translateX(-8px);   }
+      70%  { transform: translateX(-22px);  }
+      85%  { transform: translateX(-4px);   }
+      100% { transform: translateX(0);      }
+    }
+    .card-inner.spring-closing {
+      animation: springClose 0.42s ease-in-out forwards;
+      transition: none !important;
+    }
 
-        .signal.sell {
-            background: var(--gradient-danger);
-            color: white;
-            border: none;
-            animation: shake 0.5s ease-in-out;
-        }
+    .sheet-handle {
+      width: 32px;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--border-mid);
+      margin: 12px auto 0;
+    }
 
-        .signal.hold {
-            background: var(--gradient-warning);
-            color: white;
-            border: none;
-        }
+    .sheet-header {
+      padding: 16px 20px 12px;
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: var(--text);
+    }
 
-        .signal.sell-80 {
-            background: var(--gradient-danger);
-            color: white;
-            border: none;
-            animation: pulse 1.5s infinite;
-        }
+    .sheet-section {
+      padding: 0 20px;
+      margin-bottom: 24px;
+    }
 
-        .signal.sell-all {
-            background: var(--gradient-danger);
-            color: white;
-            border: none;
-            animation: shake 0.8s ease-in-out infinite;
-        }
+    .sheet-section-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
 
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
-        }
+    .sheet-rows {
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
 
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-5px); }
-            75% { transform: translateX(5px); }
-        }
-        .loading {
-            text-align: center;
-            color: var(--text-secondary);
-            font-style: italic;
-            font-size: 14px;
-            padding: 15px;
-            background: var(--bg-accent);
-            border-radius: 12px;
-            margin: 15px 0;
-        }
+    .sheet-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 13px 14px;
+      background: var(--bg-subtle);
+      border-bottom: 1px solid var(--border);
+    }
+    .sheet-row:last-child { border-bottom: none; }
 
-        .error {
-            background: var(--gradient-danger);
-            color: white;
-            padding: 15px;
-            border-radius: 12px;
-            margin: 15px 0;
-            font-weight: 600;
-            box-shadow: var(--shadow);
-            animation: shake 0.5s ease-in-out;
-            font-size: 14px;
-        }
+    .sheet-row-label { font-size: 15px; font-weight: 500; color: var(--text); }
+    .sheet-row-hint  { font-size: 12px; font-weight: 400; color: var(--text-3); margin-top: 1px; }
 
-        @media (max-width: 768px) {
-            .loading, .error {
-                font-size: 13px;
-                padding: 12px;
-                margin: 12px 0;
-            }
-        }
+    /* Inputs */
+    .sheet-input {
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text);
+      background: var(--surface);
+      border: 1.5px solid var(--border-mid);
+      border-radius: 8px;
+      padding: 6px 10px;
+      width: 72px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .sheet-input:focus { outline: none; border-color: var(--accent); }
 
-        @media (max-width: 480px) {
-            .loading, .error {
-                font-size: 12px;
-                padding: 10px;
-                margin: 10px 0;
-            }
-        }
+    .sheet-select {
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+      background: var(--surface);
+      border: 1.5px solid var(--border-mid);
+      border-radius: 8px;
+      padding: 6px 10px;
+      max-width: 150px;
+    }
+    .sheet-select:focus { outline: none; border-color: var(--accent); }
 
-        small {
-            color: var(--text-muted);
-            font-size: 11px;
-        }
+    .time-input {
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+      background: var(--bg-subtle);
+      border: 1.5px solid var(--border-mid);
+      border-radius: 8px;
+      cursor: pointer;
+      padding: 6px 12px;
+      -webkit-appearance: none;
+      appearance: none;
+      min-width: 92px;
+      text-align: center;
+    }
 
-        @media (max-width: 768px) {
-            small {
-                font-size: 10px;
-            }
-        }
+    /* ── Custom time picker (in-WebView, themed) ── */
+    .tp-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.4);
+      display: flex; align-items: flex-end; justify-content: center;
+      opacity: 0; pointer-events: none;
+      transition: opacity .2s ease;
+      z-index: 120; /* above the settings overlay (z-index 100) */
+    }
+    .tp-overlay.open { opacity: 1; pointer-events: auto; }
+    .tp-sheet {
+      background: var(--surface);
+      width: 100%; max-width: 480px;
+      border-radius: 20px 20px 0 0;
+      padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
+      transform: translateY(100%);
+      transition: transform .25s cubic-bezier(.32,.72,0,1);
+    }
+    .tp-overlay.open .tp-sheet { transform: translateY(0); }
+    .tp-title {
+      font-size: 15px; font-weight: 600; text-align: center;
+      color: var(--text); margin-bottom: 18px;
+    }
+    .tp-wheels {
+      position: relative;
+      display: flex; justify-content: center; align-items: stretch; gap: 4px;
+      height: 200px;
+    }
+    /* centered selection band */
+    .tp-wheels::before {
+      content: ''; position: absolute; left: 8px; right: 8px; top: 80px; height: 40px;
+      background: var(--bg-subtle);
+      border-radius: var(--radius-sm);
+      pointer-events: none;
+    }
+    .tp-col {
+      position: relative; z-index: 1;
+      height: 200px; width: 68px; flex: 0 0 auto;
+      overflow-y: scroll;
+      scroll-snap-type: y mandatory;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      text-align: center;
+    }
+    .tp-col::-webkit-scrollbar { display: none; }
+    .tp-pad { height: 80px; }
+    .tp-item {
+      height: 40px; line-height: 40px;
+      font-size: 21px; font-weight: 500;
+      color: var(--text-muted);
+      scroll-snap-align: center;
+      transition: color .12s ease;
+    }
+    .tp-item.sel { color: var(--text); font-weight: 600; }
+    .tp-colon {
+      align-self: center; z-index: 1;
+      font-size: 21px; font-weight: 600; color: var(--text);
+      padding-bottom: 2px;
+    }
+    .tp-actions { display: flex; gap: 12px; margin-top: 22px; }
+    .tp-btn {
+      flex: 1; padding: 13px; border-radius: 10px;
+      font-family: inherit; font-size: 14px; font-weight: 600;
+      cursor: pointer;
+    }
+    .tp-btn.cancel {
+      background: var(--bg-subtle); color: var(--text-2);
+      border: 1.5px solid var(--border-mid);
+    }
+    .tp-btn.set {
+      background: var(--accent); color: var(--accent-fg);
+      border: 1.5px solid var(--accent);
+    }
 
-        @media (max-width: 480px) {
-            small {
-                font-size: 9px;
-            }
-        }
+    .notif-time-row {
+      overflow: hidden;
+      max-height: 60px;
+      transition: max-height 0.2s ease, opacity 0.2s ease;
+    }
+    .notif-time-row.hidden { max-height: 0; opacity: 0; pointer-events: none; }
 
-        /* Additional responsive improvements */
-        @media (max-width: 768px) {
-            .setting-group {
-                display: flex;
-                flex-direction: column;
-                gap: 5px;
-            }
-            
-            label {
-                width: 100%;
-                margin-bottom: 2px;
-            }
-            
-            input[type="number"], input[type="text"], input[type="password"], select {
-                width: 100%;
-                max-width: 250px;
-            }
-        }
+    /* Done button */
+    .sheet-done {
+      display: block;
+      width: calc(100% - 40px);
+      margin: 4px 20px 20px;
+      padding: 14px;
+      background: var(--accent);
+      color: var(--accent-fg);
+      border: none;
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      letter-spacing: -0.2px;
+      transition: opacity 0.15s;
+    }
+    .sheet-done:active { opacity: 0.8; }
 
-        @media (max-width: 480px) {
-            .data-item {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 5px;
-            }
-            
-            .data-value {
-                align-self: flex-end;
-            }
-        }
-    </style>
+    /* ── Add Index sheet specifics ── */
+    .add-index-row {
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.1s;
+    }
+    .add-index-row:active { background: var(--border); }
+    .add-index-row.selected { background: var(--bg-subtle); }
+
+    .add-index-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 1.5px solid var(--border-mid);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-3);
+      flex-shrink: 0;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
+    }
+    .add-index-icon.selected {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--accent-fg);
+    }
+
+    .add-empty {
+      text-align: center;
+      padding: 32px 20px;
+      color: var(--text-3);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    /* Reduce motion */
+    @media (prefers-reduced-motion: reduce) {
+      .card-detail, .card-chevron, .filter-chip,
+      .sheet { transition: none; animation: none; }
+    }
+  </style>
 </head>
 <body>
 
-    <div class="container">
-        <h1 id="pageTitle" style="margin-top: 10px;">SMA Signal Strategy</h1>
-        
-        <div class="settings">
-            <h3 style="font-size: 14px; margin-bottom: 8px;">Configuration</h3>
-            <div class="setting-group">
-                <label for="indexSelect">Index to Track:</label>
-                <select id="indexSelect" onchange="onIndexChange()" style="width: 200px; padding: 5px; border: 1px solid #ddd; border-radius: 3px;">
-                    <option value="$SPX" selected>S&P 500 ($SPX)</option>
-                    <option value="$NASX">NASDAQ ($NASX)</option>
-                    <option value="URTH">MSCI World (URTH)</option>
-                </select>
-            </div>
-            <div class="setting-group">
-                <label for="buyThreshold">Buy Signal (% above SMA):</label>
-                <input type="number" id="buyThreshold" value="4" step="0.1" min="0" max="100">
-            </div>
-            <div class="setting-group">
-                <label for="sellThreshold">Sell Signal (% below SMA):</label>
-                <input type="number" id="sellThreshold" value="3" step="0.1" min="0" max="100">
-            </div>
-            <div class="setting-group">
-                <label>Notifications:</label>
-                <div style="display:flex; flex-direction:column; gap:6px;">
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        <label for="notifFrequency" style="width:auto;">Notification frequency:</label>
-                        <select id="notifFrequency" style="flex:1;">
-                            <option value="disabled">Disabled</option>
-                            <option value="on_change" selected>Only on signal change</option>
-                            <option value="daily">Daily (always)</option>
-                        </select>
-                    </div>
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        <label for="notifTime" style="width:auto;">Notification time (your timezone):</label>
-                        <input type="time" id="notifTime">
-                    </div>
-                </div>
-            </div>
-            <button onclick="fetchData()">Generate Signal</button>
-        </div>
+<div class="page">
 
-        <div class="data-section">
-            <h3 style="font-size: 14px; margin-bottom: 8px;">Current Data</h3>
-            <div id="loading" class="loading" style="display: none;">Loading data...</div>
-            <div id="error" class="error" style="display: none;"></div>
-            
-            <div id="dataDisplay" style="display: none;">
-            <div class="data-item">
-                <span class="data-label" id="indexLabel">S&P 500 Current Level:</span>
-                <span class="data-value" id="currentLevel">-</span>
-            </div>
-                <div class="data-item">
-                    <span class="data-label">200-Day SMA:</span>
-                    <span class="data-value" id="smaValue">-</span>
-                </div>
-                <div class="data-item">
-                    <span class="data-label">Difference from SMA:</span>
-                    <span class="data-value" id="difference">-</span>
-                </div>
-                <div class="data-item">
-                    <span class="data-label">Percentage from SMA:</span>
-                    <span class="data-value" id="percentage">-</span>
-                </div>
-            </div>
+  <!-- Header -->
+  <div class="header">
+    <div>
+      <div class="header-title">SMA Signals</div>
+      <div class="header-sub">200-day moving average</div>
+    </div>
+    <div class="header-actions">
+      <button class="icon-btn" onclick="openAddIndex()" aria-label="Add index">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+      </button>
+      <button class="icon-btn" onclick="openSettings()" aria-label="Settings">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
+    </div>
+  </div>
 
-            <div id="tradingSignal" class="signal" style="display: none;">
-                <div id="signalText">-</div>
-            </div>
+  <!-- Filter bar -->
+  <div class="filter-bar" role="group" aria-label="Filter signals">
+    <button class="filter-chip active" id="filterAll"  onclick="setFilter(null)">All</button>
+    <button class="filter-chip"        id="filterBuy"  onclick="setFilter('buy')">
+      <span class="chip-dot buy"></span><span id="buyCount">–</span> BUY
+    </button>
+    <button class="filter-chip"        id="filterHold" onclick="setFilter('hold')">
+      <span class="chip-dot hold"></span><span id="holdCount">–</span> HOLD
+    </button>
+    <button class="filter-chip"        id="filterSell" onclick="setFilter('sell')">
+      <span class="chip-dot sell"></span><span id="sellCount">–</span> SELL
+    </button>
+  </div>
+
+  <!-- Cards -->
+  <div id="cardsContainer"></div>
+
+</div>
+
+<!-- Sticky refresh bar -->
+<div class="refresh-bar">
+  <div class="last-updated" id="lastUpdated"></div>
+  <button class="refresh-btn" id="refreshBtn" onclick="fetchAll()">Refresh All</button>
+</div>
+
+<!-- Settings overlay -->
+<div class="overlay" id="settingsOverlay" onclick="settingsOverlayClick(event)">
+  <div class="sheet" id="settingsSheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">Settings</div>
+
+    <div class="sheet-section">
+      <div class="sheet-section-label">Signal Thresholds</div>
+      <div class="sheet-rows">
+        <div class="sheet-row">
+          <div>
+            <div class="sheet-row-label">Buy above SMA</div>
+            <div class="sheet-row-hint">% above 200-day average</div>
+          </div>
+          <input class="sheet-input" type="number" id="buyThreshold" value="4" step="0.1" min="0" max="100">
         </div>
+        <div class="sheet-row">
+          <div>
+            <div class="sheet-row-label">Sell below SMA</div>
+            <div class="sheet-row-hint">% below 200-day average</div>
+          </div>
+          <input class="sheet-input" type="number" id="sellThreshold" value="3" step="0.1" min="0" max="100">
+        </div>
+      </div>
     </div>
 
-    <script>
-        // Simple obfuscation functions
-        function obfuscateKey(key) {
-            return btoa(key.split('').reverse().join(''));
+    <div class="sheet-section">
+      <div class="sheet-section-label">Notifications</div>
+      <div class="sheet-rows">
+        <div class="sheet-row">
+          <div class="sheet-row-label">Frequency</div>
+          <select class="sheet-select" id="notifFrequency" onchange="onNotifFreqChange()">
+            <option value="disabled">Off</option>
+            <option value="on_change" selected>On change</option>
+            <option value="daily">Daily</option>
+          </select>
+        </div>
+        <div class="sheet-row notif-time-row" id="notifTimeRow">
+          <div>
+            <div class="sheet-row-label">Alert time</div>
+            <div class="sheet-row-hint" id="tzHint">Your timezone</div>
+          </div>
+          <input type="hidden" id="notifTime">
+          <button type="button" class="time-input" id="notifTimeBtn" onclick="openTimePicker()">15:30</button>
+        </div>
+      </div>
+    </div>
+
+    <button class="sheet-done" onclick="closeSettings()">Done</button>
+  </div>
+</div>
+
+<!-- Add Index overlay -->
+<div class="overlay" id="addOverlay" onclick="addOverlayClick(event)">
+  <div class="sheet" id="addSheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">Add Index</div>
+
+    <div class="sheet-section">
+      <div class="sheet-section-label">Available</div>
+      <div id="addIndexList" class="sheet-rows"></div>
+    </div>
+
+    <button class="sheet-done" onclick="applyAddIndex()">Done</button>
+  </div>
+</div>
+
+<!-- Custom time picker overlay -->
+<div class="tp-overlay" id="tpOverlay" onclick="if(event.target===this)closeTimePicker()">
+  <div class="tp-sheet">
+    <div class="tp-title">Alert time</div>
+    <div class="tp-wheels">
+      <div class="tp-col" id="tpHours"   onscroll="tpOnScroll('h')"></div>
+      <div class="tp-colon">:</div>
+      <div class="tp-col" id="tpMinutes" onscroll="tpOnScroll('m')"></div>
+    </div>
+    <div class="tp-actions">
+      <button type="button" class="tp-btn cancel" onclick="closeTimePicker()">Cancel</button>
+      <button type="button" class="tp-btn set"    onclick="confirmTimePicker()">Set</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Catalog of supported indices. Extensible — add an index by adding one entry
+  // here (and a matching MOCK entry below for desktop-browser preview).
+  const CATALOG = [
+    { id: '$SPX',  name: 'S&P 500',           symbol: '$SPX'  },
+    { id: '$NASX', name: 'NASDAQ Composite',  symbol: '$NASX' },
+    { id: 'URTH',  name: 'MSCI World',        symbol: 'URTH'  },
+  ];
+
+  // Desktop-browser preview data only. On device, window.Android is present and
+  // this object is bypassed entirely (see fetchBarchartData).
+  const MOCK = {
+    '$SPX':  { currentPrice: 5320.45,  sma200: 4987.12  },
+    '$NASX': { currentPrice: 19250.00, sma200: 19100.00 },
+    'URTH':  { currentPrice: 113.20,   sma200: 120.50   },
+  };
+
+  let tracked      = CATALOG.map(c => c.id); // default: track all supported indices
+  let results      = {};
+  let activeFilter = null;
+  let activeSwipe  = null;
+  let notifEnabled = {}; // sym → boolean
+
+  // ── Swipe to reveal ───────────────────────────────────────────
+  function attachSwipe(sym) {
+    const card = document.querySelector(`.index-card[data-sym="${sym}"]`);
+    if (!card) return;
+    const inner       = card.querySelector('.card-inner');
+    const actionWidth = 160; // two action buttons at 80px each
+
+    let startX = 0, startY = 0, curX = 0, direction = null;
+
+    inner.addEventListener('touchstart', e => {
+      startX    = e.touches[0].clientX;
+      startY    = e.touches[0].clientY;
+      curX      = startX;
+      direction = null;
+      inner.style.transition = 'none';
+      if (activeSwipe && activeSwipe !== sym) closeSwipe(activeSwipe);
+    }, { passive: true });
+
+    inner.addEventListener('touchmove', e => {
+      curX = e.touches[0].clientX;
+      const dx = curX - startX;
+      const dy = e.touches[0].clientY - startY;
+
+      if (!direction && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) {
+        direction = Math.abs(dx) >= Math.abs(dy) ? 'h' : 'v';
+      }
+      if (direction !== 'h') return;
+
+      e.preventDefault();
+      const translate = Math.min(0, Math.max(-actionWidth, dx));
+      inner.style.transform = `translateX(${translate}px)`;
+    }, { passive: false });
+
+    inner.addEventListener('touchend', () => {
+      if (direction !== 'h') return;
+      inner.style.transition = 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
+      const dx = curX - startX;
+      if (dx < -(actionWidth / 2)) {
+        inner.style.transform = `translateX(-${actionWidth}px)`;
+        activeSwipe = sym;
+      } else {
+        inner.style.transform = 'translateX(0)';
+        if (activeSwipe === sym) activeSwipe = null;
+      }
+    });
+  }
+
+  function closeSwipe(sym) {
+    const inner = document.querySelector(`.index-card[data-sym="${sym}"] .card-inner`);
+    if (inner) {
+      inner.style.transition = '';
+      inner.classList.add('spring-closing');
+      inner.addEventListener('animationend', () => {
+        inner.classList.remove('spring-closing');
+        inner.style.transform = 'translateX(0)';
+      }, { once: true });
+    }
+    if (activeSwipe === sym) activeSwipe = null;
+  }
+
+  // Close any open swipe when tapping outside that card
+  document.addEventListener('touchstart', e => {
+    if (activeSwipe && !e.target.closest(`.index-card[data-sym="${activeSwipe}"]`)) {
+      closeSwipe(activeSwipe);
+    }
+  }, { passive: true });
+
+  // ── Delete index ──────────────────────────────────────────────
+  function deleteIndex(sym, e) {
+    e.stopPropagation();
+    const inner = document.querySelector(`.index-card[data-sym="${sym}"] .card-inner`);
+    if (inner) {
+      inner.style.transition = 'transform 0.2s ease, opacity 0.2s ease';
+      inner.style.transform  = 'translateX(-110%)';
+      inner.style.opacity    = '0';
+    }
+    setTimeout(() => {
+      tracked = tracked.filter(s => s !== sym);
+      delete results[sym];
+      if (activeSwipe === sym) activeSwipe = null;
+      saveSettings();
+      renderCards();
+    }, 200);
+  }
+
+  // ── Settings ──────────────────────────────────────────────────
+  function loadSettings() {
+    const t    = localStorage.getItem('trackedIndexes');
+    const buy  = localStorage.getItem('buyThreshold');
+    const sell = localStorage.getItem('sellThreshold');
+    const freq = localStorage.getItem('notifFrequency');
+    const hour = localStorage.getItem('notifHour');
+    const min  = localStorage.getItem('notifMinute');
+
+    const n = localStorage.getItem('notifEnabled');
+    if (n) {
+      try { notifEnabled = JSON.parse(n); } catch (_) { notifEnabled = {}; }
+    }
+    if (t) {
+      try {
+        const parsed = JSON.parse(t);
+        // keep only symbols still present in the catalog
+        if (Array.isArray(parsed)) tracked = parsed.filter(s => CATALOG.some(c => c.id === s));
+      } catch (_) {}
+    } else {
+      // Migration from the old single-index UI: seed from selectedIndex if present.
+      const legacy = localStorage.getItem('selectedIndex');
+      if (legacy && CATALOG.some(c => c.id === legacy)) tracked = [legacy];
+    }
+
+    if (buy)  document.getElementById('buyThreshold').value  = buy;
+    if (sell) document.getElementById('sellThreshold').value = sell;
+
+    if (freq) document.getElementById('notifFrequency').value = freq;
+
+    setNotifTime(
+      (hour && min)
+        ? `${String(hour).padStart(2,'0')}:${String(min).padStart(2,'0')}`
+        : defaultNotifTime());
+
+    updateNotifTimeVisibility();
+  }
+
+  function saveSettings() {
+    localStorage.setItem('notifEnabled',   JSON.stringify(notifEnabled));
+    localStorage.setItem('trackedIndexes', JSON.stringify(tracked));
+    localStorage.setItem('buyThreshold',   document.getElementById('buyThreshold').value);
+    localStorage.setItem('sellThreshold',  document.getElementById('sellThreshold').value);
+    localStorage.setItem('notifFrequency', document.getElementById('notifFrequency').value);
+    const [h, m] = (document.getElementById('notifTime').value || '15:30').split(':');
+    localStorage.setItem('notifHour',   String(parseInt(h  || '15', 10)));
+    localStorage.setItem('notifMinute', String(parseInt(m  || '30', 10)));
+    if (window.Android && typeof window.Android.rescheduleNotifications === 'function') {
+      try { window.Android.rescheduleNotifications(); } catch (_) {}
+    }
+  }
+
+  function defaultNotifTime() {
+    const now = new Date(), mo = now.getMonth();
+    const off = (mo >= 2 && mo <= 10) ? 4 : 5;
+    const yyyy = now.getFullYear();
+    const mm   = String(now.getMonth() + 1).padStart(2, '0');
+    const dd   = String(now.getDate()).padStart(2, '0');
+    const t    = new Date(`${yyyy}-${mm}-${dd}T15:30:00-0${off}:00`);
+    return `${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`;
+  }
+
+  // ── Custom time picker ────────────────────────────────────────
+  // Sets both the hidden field (the HH:MM data contract read by saveSettings)
+  // and the visible button label.
+  function setNotifTime(hhmm) {
+    const [h, m] = (hhmm || '15:30').split(':');
+    const norm = `${String(parseInt(h || '15', 10)).padStart(2,'0')}:${String(parseInt(m || '30', 10)).padStart(2,'0')}`;
+    document.getElementById('notifTime').value = norm;
+    const btn = document.getElementById('notifTimeBtn');
+    if (btn) btn.textContent = norm;
+  }
+
+  let tpHour = 15, tpMin = 30;
+
+  function openTimePicker() {
+    const cur = (document.getElementById('notifTime').value || '15:30').split(':');
+    tpHour = Math.min(23, Math.max(0, parseInt(cur[0], 10) || 0));
+    tpMin  = Math.min(59, Math.max(0, parseInt(cur[1], 10) || 0));
+
+    const overlay = document.getElementById('tpOverlay');
+    const hourCol = document.getElementById('tpHours');
+    const minCol  = document.getElementById('tpMinutes');
+    hourCol.innerHTML = tpColumnHTML(24);
+    minCol.innerHTML  = tpColumnHTML(60);
+
+    overlay.classList.add('open');
+    // Wait for layout, then jump each column to its selected value (no smooth scroll on open).
+    requestAnimationFrame(() => {
+      scrollColTo(hourCol, tpHour, false);
+      scrollColTo(minCol,  tpMin,  false);
+      tpMarkSelected(hourCol, tpHour);
+      tpMarkSelected(minCol,  tpMin);
+    });
+  }
+
+  function tpColumnHTML(count) {
+    let html = '<div class="tp-pad"></div>';
+    for (let i = 0; i < count; i++) {
+      html += `<div class="tp-item" data-val="${i}">${String(i).padStart(2,'0')}</div>`;
+    }
+    html += '<div class="tp-pad"></div>';
+    return html;
+  }
+
+  function scrollColTo(col, val, smooth) {
+    // Each item is 40px tall; the first real item sits after the 80px top pad.
+    col.scrollTo({ top: val * 40, behavior: smooth ? 'smooth' : 'auto' });
+  }
+
+  function tpMarkSelected(col, val) {
+    col.querySelectorAll('.tp-item').forEach(el => {
+      el.classList.toggle('sel', parseInt(el.dataset.val, 10) === val);
+    });
+  }
+
+  // Debounced snap-reader: figure out which value is centered as the user scrolls.
+  function tpOnScroll(which) {
+    const col = document.getElementById(which === 'h' ? 'tpHours' : 'tpMinutes');
+    const val = Math.round(col.scrollTop / 40);
+    if (which === 'h') tpHour = Math.min(23, Math.max(0, val));
+    else               tpMin  = Math.min(59, Math.max(0, val));
+    tpMarkSelected(col, which === 'h' ? tpHour : tpMin);
+  }
+
+  function closeTimePicker() {
+    document.getElementById('tpOverlay').classList.remove('open');
+  }
+
+  function confirmTimePicker() {
+    setNotifTime(`${String(tpHour).padStart(2,'0')}:${String(tpMin).padStart(2,'0')}`);
+    closeTimePicker();
+  }
+
+  function toggleNotif(sym, e) {
+    e.stopPropagation();
+    notifEnabled[sym] = !notifEnabled[sym];
+    localStorage.setItem('notifEnabled', JSON.stringify(notifEnabled));
+    // Update swipe action button in-place
+    const actionEl = document.getElementById(`notif-action-${sym}`);
+    if (actionEl) {
+      actionEl.innerHTML = bellIcon(18, notifEnabled[sym]) +
+        `<span>${notifEnabled[sym] ? 'Notify On' : 'Notify Off'}</span>`;
+    }
+    // Update bell indicator in card header in-place
+    const bellEl = document.getElementById(`bell-${sym}`);
+    if (bellEl) bellEl.innerHTML = bellIcon(15, notifEnabled[sym]);
+    // Update notify button in expanded detail in-place
+    const detailBtnEl = document.getElementById(`notif-detail-btn-${sym}`);
+    if (detailBtnEl) {
+      detailBtnEl.innerHTML = bellIcon(14, notifEnabled[sym]) +
+        `<span>${notifEnabled[sym] ? 'Notify On' : 'Notify Off'}</span>`;
+    }
+    if (window.Android && typeof window.Android.rescheduleNotifications === 'function') {
+      try { window.Android.rescheduleNotifications(); } catch (_) {}
+    }
+  }
+
+  function openSettings() {
+    document.getElementById('settingsOverlay').classList.add('open');
+    try {
+      // Pull the full zone label (e.g. "GMT+5:30", "EST") straight from the
+      // formatter instead of regex-truncating it — a bare match would drop the
+      // offset and mislabel Asia/Kolkata as "GMT".
+      const parts = new Intl.DateTimeFormat('en-US', { timeZoneName: 'short' }).formatToParts(new Date());
+      const tzName = parts.find(p => p.type === 'timeZoneName')?.value;
+      const abbr = tzName
+        || Intl.DateTimeFormat().resolvedOptions().timeZone.split('/').pop().replace(/_/g, ' ');
+      const el = document.getElementById('tzHint');
+      if (el) el.textContent = abbr;
+    } catch (_) {}
+  }
+  function closeSettings() {
+    saveSettings();
+    const overlay = document.getElementById('settingsOverlay');
+    const sheet   = document.getElementById('settingsSheet');
+    sheet.classList.add('closing');
+    overlay.classList.add('closing');
+    overlay.classList.remove('open');
+    setTimeout(() => {
+      overlay.classList.remove('closing');
+      sheet.classList.remove('closing');
+      sheet.style.transform = '';
+      sheet.style.transition = '';
+      renderCards();
+      tracked.filter(s => !results[s] || results[s].state === 'error').forEach(fetchOne);
+    }, 220);
+  }
+  function settingsOverlayClick(e) {
+    if (e.target === document.getElementById('settingsOverlay')) closeSettings();
+  }
+  function onNotifFreqChange() { updateNotifTimeVisibility(); }
+  function updateNotifTimeVisibility() {
+    const freq = document.getElementById('notifFrequency').value;
+    document.getElementById('notifTimeRow').classList.toggle('hidden', freq === 'disabled');
+  }
+
+  // ── Add Index sheet ───────────────────────────────────────────
+  // Symbols the user has ticked in the current Add-Index session (committed on Done).
+  let addSelected = new Set();
+
+  function openAddIndex() {
+    addSelected = new Set();
+    renderAddList();
+    document.getElementById('addOverlay').classList.add('open');
+  }
+
+  function renderAddList() {
+    const available = CATALOG.filter(c => !tracked.includes(c.id));
+    const listEl    = document.getElementById('addIndexList');
+
+    if (!available.length) {
+      listEl.innerHTML = '<div class="add-empty">All available indexes are already being tracked.</div>';
+      return;
+    }
+    listEl.innerHTML = available.map(idx => {
+      const on = addSelected.has(idx.id);
+      const icon = on
+        ? `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`
+        : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
+      return `
+        <div class="sheet-row add-index-row${on ? ' selected' : ''}" onclick="toggleAddSelect('${idx.id}')">
+          <div>
+            <div class="sheet-row-label">${idx.name}</div>
+            <div class="sheet-row-hint">${idx.symbol}</div>
+          </div>
+          <div class="add-index-icon${on ? ' selected' : ''}">${icon}</div>
+        </div>`;
+    }).join('');
+  }
+
+  function toggleAddSelect(id) {
+    if (addSelected.has(id)) addSelected.delete(id);
+    else                     addSelected.add(id);
+    renderAddList();
+  }
+
+  // Commit all ticked indices at once, then close the sheet.
+  function applyAddIndex() {
+    const added = [];
+    addSelected.forEach(id => {
+      if (!tracked.includes(id)) { tracked.push(id); added.push(id); }
+    });
+    if (added.length) {
+      saveSettings();
+      renderCards();
+      added.forEach(id => fetchOne(id));
+    }
+    closeAddIndex();
+  }
+
+  function closeAddIndex() {
+    const overlay = document.getElementById('addOverlay');
+    const sheet   = document.getElementById('addSheet');
+    sheet.classList.add('closing');
+    overlay.classList.add('closing');
+    overlay.classList.remove('open');
+    setTimeout(() => {
+      overlay.classList.remove('closing');
+      sheet.classList.remove('closing');
+      sheet.style.transform = '';
+      sheet.style.transition = '';
+    }, 220);
+  }
+  function addOverlayClick(e) {
+    if (e.target === document.getElementById('addOverlay')) closeAddIndex();
+  }
+
+  // ── Signal logic (mirrors SMAWorker.determineSignal on the native side) ──
+  function determineSignal(price, sma, buyT, sellT) {
+    const pct = ((price - sma) / sma) * 100;
+    if (pct >= 40)     return { signal: 'SELL ALL', cls: 'sell-all', pct };
+    if (pct >= 30)     return { signal: 'SELL 80%', cls: 'sell-80',  pct };
+    if (pct >= buyT)   return { signal: 'BUY',      cls: 'buy',      pct };
+    if (pct <= -sellT) return { signal: 'SELL',     cls: 'sell',     pct };
+    return                    { signal: 'HOLD',     cls: 'hold',     pct };
+  }
+
+  function filterGroup(cls) {
+    return cls === 'buy' ? 'buy' : cls === 'hold' ? 'hold' : 'sell';
+  }
+
+  // ── Filter ────────────────────────────────────────────────────
+  function setFilter(type) {
+    activeFilter = (activeFilter === type) ? null : type;
+    updateFilterBar();
+    applyFilter();
+  }
+
+  function updateFilterBar() {
+    const counts = { buy: 0, hold: 0, sell: 0 };
+    tracked.forEach(sym => {
+      const r = results[sym];
+      if (r && r.state === 'done') counts[filterGroup(r.cls)]++;
+    });
+    document.getElementById('buyCount').textContent  = counts.buy;
+    document.getElementById('holdCount').textContent = counts.hold;
+    document.getElementById('sellCount').textContent = counts.sell;
+
+    ['filterAll','filterBuy','filterHold','filterSell'].forEach(id =>
+      document.getElementById(id).classList.remove('active'));
+    const activeId = !activeFilter        ? 'filterAll'  :
+                     activeFilter==='buy'  ? 'filterBuy'  :
+                     activeFilter==='hold' ? 'filterHold' : 'filterSell';
+    document.getElementById(activeId).classList.add('active');
+  }
+
+  function applyFilter() {
+    document.querySelectorAll('.index-card').forEach(card => {
+      const r    = results[card.dataset.sym];
+      const show = !activeFilter || (r && r.state === 'done' && filterGroup(r.cls) === activeFilter);
+      card.style.display = show ? '' : 'none';
+    });
+  }
+
+  // ── Card HTML ─────────────────────────────────────────────────
+  const CHEV  = `<svg class="card-chevron" id="chev-SYM" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`;
+  const TRASH = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>`;
+
+  function bellIcon(size, on) {
+    if (on) return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`;
+    return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><line x1="2" y1="2" x2="22" y2="22"/></svg>`;
+  }
+
+  function cardHTML(sym) {
+    const idx = CATALOG.find(c => c.id === sym);
+    if (!idx) return '';
+    const r    = results[sym] || { state: 'loading' };
+    const chev = CHEV.replace('id="chev-SYM"', `id="chev-${sym}"`);
+
+    const swipeActions = `
+      <div class="swipe-actions">
+        <button class="action-btn action-notif" id="notif-action-${sym}" onclick="toggleNotif('${sym}', event)">
+          ${bellIcon(18, notifEnabled[sym])}
+          <span>${notifEnabled[sym] ? 'Notify On' : 'Notify Off'}</span>
+        </button>
+        <button class="action-btn action-delete" onclick="deleteIndex('${sym}', event)">
+          ${TRASH}
+          <span>Delete</span>
+        </button>
+      </div>`;
+
+    if (r.state === 'loading') return `
+      <div class="index-card" data-sym="${sym}">
+        ${swipeActions}
+        <div class="card-inner">
+          <div class="card-main">
+            <div class="card-info">
+              <div class="card-name">${idx.name}</div>
+              <div class="card-symbol">${idx.symbol}</div>
+            </div>
+            <div class="card-loading">
+              <div class="spinner"></div>
+              <span class="card-loading-text">Loading…</span>
+            </div>
+          </div>
+        </div>
+      </div>`;
+
+    if (r.state === 'error') return `
+      <div class="index-card" data-sym="${sym}">
+        ${swipeActions}
+        <div class="card-inner" onclick="retryOne('${sym}')">
+          <div class="card-main">
+            <div class="card-info">
+              <div class="card-name">${idx.name}</div>
+              <div class="card-symbol">${idx.symbol}</div>
+            </div>
+            <div class="card-error">Failed to load<br><small style="opacity:.7">Tap to retry</small></div>
+          </div>
+        </div>
+      </div>`;
+
+    const sign    = r.pct >= 0 ? '+' : '';
+    const pctCls  = r.pct >= 0 ? 'up' : 'down';
+    const distCol = r.pct >= 0 ? 'var(--buy)' : 'var(--sell)';
+
+    return `
+      <div class="index-card" data-sym="${sym}">
+        ${swipeActions}
+        <div class="card-inner" onclick="handleCardTap('${sym}')">
+          <div class="card-main">
+            <div class="card-info">
+              <div class="card-name">${idx.name}</div>
+              <div class="card-symbol">${idx.symbol}</div>
+            </div>
+            <div class="card-right">
+              <span class="signal-badge ${r.cls}">${r.signal}</span>
+              <span class="card-pct ${pctCls}">${sign}${r.pct.toFixed(2)}%</span>
+            </div>
+            <div class="notif-bell" id="bell-${sym}">${bellIcon(15, notifEnabled[sym])}</div>
+            ${chev}
+          </div>
+          <div class="card-detail" id="detail-${sym}">
+            <div class="detail-inner">
+              <div class="detail-row">
+                <span class="detail-label">Current Price</span>
+                <span class="detail-value">${fmt(r.price)}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">200-Day SMA</span>
+                <span class="detail-value">${fmt(r.sma)}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Difference from SMA</span>
+                <span class="detail-value" style="color:${distCol}">${sign}${fmt(r.price - r.sma)} (${sign}${r.pct.toFixed(2)}%)</span>
+              </div>
+            </div>
+            <div class="detail-actions">
+              <button class="detail-action-btn" id="notif-detail-btn-${sym}" onclick="toggleNotif('${sym}', event)">
+                ${bellIcon(14, notifEnabled[sym])}
+                <span>${notifEnabled[sym] ? 'Notify On' : 'Notify Off'}</span>
+              </button>
+              <button class="detail-action-btn detail-action-remove" onclick="deleteIndex('${sym}', event)">
+                ${TRASH}
+                <span>Remove</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function renderCards() {
+    const el = document.getElementById('cardsContainer');
+    el.innerHTML = tracked.length
+      ? tracked.map(cardHTML).join('')
+      : '<div class="empty-state">No indexes tracked.<br>Tap + to add one.</div>';
+    tracked.forEach(attachSwipe);
+    applyFilter();
+    updateFilterBar();
+  }
+
+  function updateCard(sym) {
+    const existing = document.querySelector(`.index-card[data-sym="${sym}"]`);
+    if (!existing) { renderCards(); return; }
+    const tmp     = document.createElement('div');
+    tmp.innerHTML = cardHTML(sym).trim();
+    existing.replaceWith(tmp.firstElementChild);
+    attachSwipe(sym);
+    applyFilter();
+    updateFilterBar();
+  }
+
+  function handleCardTap(sym) {
+    if (activeSwipe === sym) { closeSwipe(sym); return; }
+    toggleDetail(sym);
+  }
+
+  function toggleDetail(sym) {
+    document.getElementById('detail-' + sym)?.classList.toggle('open');
+    document.getElementById('chev-'   + sym)?.classList.toggle('open');
+  }
+
+  // ── Fetch ─────────────────────────────────────────────────────
+  async function fetchBarchartData(symbol) {
+    const isMock = !window.Android &&
+      (location.protocol === 'file:' || location.hostname === 'localhost' ||
+       location.hostname.endsWith('github.io'));
+    if (isMock) {
+      const m = MOCK[symbol];
+      await new Promise(r => setTimeout(r, 400 + Math.random() * 400));
+      if (m) return m;
+      throw new Error('No mock data');
+    }
+    if (window.Android && typeof window.Android.getHistoricalData === 'function') {
+      try {
+        const raw = window.Android.getHistoricalData(symbol);
+        if (raw?.trim()) {
+          const d = JSON.parse(raw);
+          if (d.currentPrice && d.sma200) return d;
         }
+      } catch (_) {}
+    }
+    const res = await fetch(
+      `https://www.barchart.com/stocks/quotes/${symbol}/technical-analysis`,
+      { headers: { 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' } }
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const html = await res.text();
+    let p = 0, s = 0;
+    const pm = html.match(/"lastPrice"\s*:\s*"?([0-9,]+\.?[0-9]*)"?/);
+    if (pm) p = parseFloat(pm[1].replace(/,/g, ''));
+    const sm = html.match(/<td>200-Day<\/td>\s*<td[^>]*>\s*([\d,]+\.?\d*)\s*<\/td>/);
+    if (sm) s = parseFloat(sm[1].replace(/,/g, ''));
+    if (!p || !s) throw new Error('Could not parse data');
+    return { currentPrice: p, sma200: s };
+  }
 
-        function deobfuscateKey(obfuscatedKey) {
-            try {
-                return atob(obfuscatedKey).split('').reverse().join('');
-            } catch (e) {
-                return '';
-            }
+  async function fetchOne(sym) {
+    results[sym] = { state: 'loading' };
+    updateCard(sym);
+    try {
+      const d    = await fetchBarchartData(sym);
+      const buyT = parseFloat(document.getElementById('buyThreshold').value)  || 4;
+      const selT = parseFloat(document.getElementById('sellThreshold').value) || 3;
+      results[sym] = { state: 'done', price: d.currentPrice, sma: d.sma200,
+                       ...determineSignal(d.currentPrice, d.sma200, buyT, selT) };
+    } catch (e) {
+      results[sym] = { state: 'error', msg: e.message };
+    }
+    updateCard(sym);
+  }
+
+  async function fetchAll() {
+    const btn       = document.getElementById('refreshBtn');
+    btn.disabled    = true;
+    btn.textContent = 'Refreshing…';
+    tracked.forEach(s => { results[s] = { state: 'loading' }; });
+    renderCards();
+    await Promise.all(tracked.map(fetchOne));
+    const time = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    document.getElementById('lastUpdated').textContent = `Updated ${time}`;
+    btn.disabled    = false;
+    btn.textContent = 'Refresh All';
+  }
+
+  function retryOne(sym) { fetchOne(sym); }
+
+  function fmt(n) {
+    return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  // ── First-time swipe hint ──────────────────────────────────────
+  function hintSwipe() {
+    if (localStorage.getItem('swipeHintShown')) return;
+    localStorage.setItem('swipeHintShown', '1');
+    const sym = tracked[0];
+    if (!sym) return;
+    setTimeout(() => {
+      const inner = document.querySelector(`.index-card[data-sym="${sym}"] .card-inner`);
+      if (!inner) return;
+      inner.style.transition = 'transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)';
+      inner.style.transform  = 'translateX(-80px)';
+      setTimeout(() => {
+        inner.style.transition = 'transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1)';
+        inner.style.transform  = 'translateX(0)';
+      }, 900);
+    }, 800);
+  }
+
+  // Prevent pinch-zoom on iOS Safari (viewport meta covers Android/others)
+  document.addEventListener('touchmove', e => {
+    if (e.touches.length > 1) e.preventDefault();
+  }, { passive: false });
+
+  // ── Sheet drag-to-dismiss ──────────────────────────────────────
+  function attachSheetDrag(sheet, closeFn) {
+    let startY = 0, currentDelta = 0, dragging = false;
+
+    sheet.addEventListener('touchstart', e => {
+      startY       = e.touches[0].clientY;
+      currentDelta = 0;
+      dragging     = false;
+    }, { passive: true });
+
+    sheet.addEventListener('touchmove', e => {
+      const delta = e.touches[0].clientY - startY;
+      if (!dragging) {
+        // Only start drag when swiping down from top of sheet
+        if (delta > 8 && sheet.scrollTop <= 0) {
+          dragging = true;
+          sheet.style.transition = 'none';
+        } else {
+          return;
         }
+      }
+      currentDelta = Math.max(0, delta);
+      sheet.style.transform = `translateY(${currentDelta}px)`;
+      e.preventDefault(); // stop page behind from scrolling
+    }, { passive: false });
 
-        // Cookie management functions
-        function setCookie(name, value, days = 365) {
-            const expires = new Date();
-            expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
-            // Remove secure flag for local file access and use more permissive settings
-            document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/`;
-        }
+    sheet.addEventListener('touchend', () => {
+      if (!dragging) return;
+      dragging = false;
+      if (currentDelta > 80) {
+        sheet.style.transition = '';
+        sheet.style.transform  = '';
+        closeFn();
+      } else {
+        sheet.style.transition = 'transform 0.3s cubic-bezier(0.32, 0.72, 0, 1)';
+        sheet.style.transform  = '';
+        setTimeout(() => { sheet.style.transition = ''; }, 300);
+      }
+      currentDelta = 0;
+    }, { passive: true });
+  }
 
-        function getCookie(name) {
-            const nameEQ = name + "=";
-            const ca = document.cookie.split(';');
-            for (let i = 0; i < ca.length; i++) {
-                let c = ca[i];
-                while (c.charAt(0) === ' ') c = c.substring(1, c.length);
-                if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
-            }
-            return null;
-        }
+  // ── Init ──────────────────────────────────────────────────────
+  window.onload = function () {
+    loadSettings();
+    renderCards();
+    attachSheetDrag(document.getElementById('settingsSheet'), closeSettings);
+    attachSheetDrag(document.getElementById('addSheet'),      closeAddIndex);
 
-        function deleteCookie(name) {
-            document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;`;
-        }
+    const isBrowser = !window.Android &&
+      (location.protocol === 'file:' || location.hostname === 'localhost' ||
+       location.hostname.endsWith('github.io'));
 
-        // Index configuration
-        const indexConfig = {
-            '$SPX': {
-                symbol: '$SPX',
-                name: 'S&P 500',
-                fullName: 'S&P 500 ($SPX)'
-            },
-            '$NASX': {
-                symbol: '$NASX',
-                name: 'NASDAQ',
-                fullName: 'NASDAQ ($NASX)'
-            },
-            'URTH': {
-                symbol: 'URTH',
-                name: 'MSCI World',
-                fullName: 'MSCI World (URTH)'
-            }
-        };
-
-        // Update UI labels based on selected index
-        function updateIndexLabels() {
-            const selectedIndex = document.getElementById('indexSelect').value;
-            const config = indexConfig[selectedIndex];
-            
-            document.getElementById('pageTitle').textContent = 'SMA Signal Strategy';
-            document.getElementById('indexLabel').textContent = `${config.name} Current Level:`;
-            // SMA is always 200-day now, no need to update label
-        }
-
-        // Handle index change - update labels and auto-generate signal
-        function onIndexChange() {
-            updateIndexLabels();
-            saveSettings();
-            // Auto-generate signal when index changes (no API key needed)
-            fetchData();
-        }
-
-        // Get default notification time (30 min before NYSE close = 3:30 PM EST/EDT in user's timezone)
-        function getDefaultNotificationTime() {
-            // Create a date representing 3:30 PM in NY timezone
-            const now = new Date();
-            const nyDateStr = now.toLocaleString("en-US", {timeZone: "America/New_York"});
-            const nyDateParts = new Date(nyDateStr);
-            
-            // Create a date for 3:30 PM in NY timezone
-            const year = nyDateParts.getFullYear();
-            const monthNum = nyDateParts.getMonth();
-            const month = String(monthNum + 1).padStart(2, '0');
-            const day = String(nyDateParts.getDate()).padStart(2, '0');
-            
-            // Create a date that represents 3:30 PM in NY timezone
-            // Use JavaScript's built-in timezone handling for DST
-            const nyTime = new Date(`${year}-${month}-${day}T15:30:00`);
-            
-            // Get the timezone offset for NY on this specific date
-            // Determine if NY is in DST by checking the month (simplified approach)
-            const isDST = monthNum >= 2 && monthNum <= 10; // DST roughly March-November
-            const offsetHours = isDST ? 4 : 5; // EDT is UTC-4, EST is UTC-5
-            
-            // Create ISO string with correct offset
-            const nyTimeISO = `${year}-${month}-${day}T15:30:00-0${offsetHours}:00`;
-            
-            // Parse this to get user's local time
-            const userTime = new Date(nyTimeISO);
-            
-            const hh = String(userTime.getHours()).padStart(2, '0');
-            const mm = String(userTime.getMinutes()).padStart(2, '0');
-            return `${hh}:${mm}`;
-        }
-
-        // Load saved settings from localStorage and cookies
-        function loadSettings() {
-            const buyThreshold = localStorage.getItem('buyThreshold');
-            const sellThreshold = localStorage.getItem('sellThreshold');
-            const selectedIndex = localStorage.getItem('selectedIndex');
-            // SMA period is always 200 now, no need to load it
-            // Notification settings
-            const notifFrequency = localStorage.getItem('notifFrequency');
-            const notifHour = localStorage.getItem('notifHour');
-            const notifMinute = localStorage.getItem('notifMinute');
-            
-            // API key is no longer needed, removed
-            
-            if (buyThreshold) document.getElementById('buyThreshold').value = buyThreshold;
-            if (sellThreshold) document.getElementById('sellThreshold').value = sellThreshold;
-            if (selectedIndex) {
-                document.getElementById('indexSelect').value = selectedIndex;
-            } else {
-                // Default to $SPX if no selection saved
-                document.getElementById('indexSelect').value = '$SPX';
-            }
-            // Apply notification settings with defaults
-            // Migrate old notifEnabled to new frequency system for backward compatibility
-            const oldNotifEnabled = localStorage.getItem('notifEnabled');
-            if (notifFrequency) {
-                document.getElementById('notifFrequency').value = notifFrequency;
-            } else if (oldNotifEnabled === 'false') {
-                document.getElementById('notifFrequency').value = 'disabled';
-            } else {
-                document.getElementById('notifFrequency').value = 'on_change'; // default
-            }
-            
-            // Use saved time or default to 30 min before NYSE close in user's timezone
-            let timeValue;
-            if (notifHour && notifMinute) {
-                const hh = String(notifHour).padStart(2, '0');
-                const mm = String(notifMinute).padStart(2, '0');
-                timeValue = `${hh}:${mm}`;
-            } else {
-                timeValue = getDefaultNotificationTime();
-            }
-            document.getElementById('notifTime').value = timeValue;
-            
-            // API key is no longer needed, removed
-            
-            updateIndexLabels();
-        }
-
-        // Save settings to localStorage and cookies
-        function saveSettings() {
-            localStorage.setItem('buyThreshold', document.getElementById('buyThreshold').value);
-            localStorage.setItem('sellThreshold', document.getElementById('sellThreshold').value);
-            localStorage.setItem('selectedIndex', document.getElementById('indexSelect').value);
-            // SMA period is always 200 now, no need to save it
-            // Save notification settings
-            localStorage.setItem('notifFrequency', document.getElementById('notifFrequency').value);
-            const timeVal = document.getElementById('notifTime').value || '15:30';
-            const [hStr, mStr] = timeVal.split(':');
-            localStorage.setItem('notifHour', String(parseInt(hStr || '15', 10)));
-            localStorage.setItem('notifMinute', String(parseInt(mStr || '30', 10)));
-            
-            // Notify Android to reschedule notifications when time/frequency changes
-            console.log('Checking for Android interface...');
-            console.log('window.Android:', window.Android);
-            if (window.Android && typeof window.Android.rescheduleNotifications === 'function') {
-                console.log('Calling window.Android.rescheduleNotifications()');
-                try {
-                    window.Android.rescheduleNotifications();
-                    console.log('Successfully called rescheduleNotifications()');
-                } catch (e) {
-                    console.error('Error calling rescheduleNotifications():', e);
-                }
-            } else {
-                console.warn('Android interface not available. window.Android:', window.Android);
-                if (window.Android) {
-                    console.warn('window.Android.rescheduleNotifications type:', typeof window.Android.rescheduleNotifications);
-                }
-            }
-            
-            // API key is no longer needed, removed
-        }
-
-        // Fetch current price and 200-day SMA from barchart.com
-        async function fetchBarchartData(symbol) {
-            try {
-                console.log('Fetching data from barchart.com for symbol:', symbol);
-                
-                // Always try Android interface first (more reliable in WebView)
-                if (window.Android && typeof window.Android.getHistoricalData === 'function') {
-                    console.log('Using Android interface to fetch data from barchart.com');
-                    try {
-                        const dataStr = window.Android.getHistoricalData(symbol);
-                        console.log('Android interface returned:', dataStr);
-                        if (dataStr && dataStr.trim() !== '') {
-                            const data = JSON.parse(dataStr);
-                            if (data.currentPrice && data.sma200) {
-                                console.log('Successfully fetched data via Android interface - Price:', data.currentPrice, ', SMA200:', data.sma200);
-                                return data;
-                            } else {
-                                console.warn('Android interface returned data but missing fields:', data);
-                            }
-                        } else {
-                            console.warn('Android interface returned empty string');
-                        }
-                    } catch (error) {
-                        console.error('Error with Android interface:', error);
-                        console.error('Error details:', error.message, error.stack);
-                    }
-                } else {
-                    console.warn('Android interface not available - window.Android:', typeof window.Android);
-                    if (window.Android) {
-                        console.warn('getHistoricalData type:', typeof window.Android.getHistoricalData);
-                    }
-                }
-                
-                // If we get here, Android interface failed or is not available
-                // Try fetch API as fallback (may fail in WebView due to CORS)
-                console.log('Attempting fetch API as fallback (may fail in WebView)');
-                const url = `https://www.barchart.com/stocks/quotes/${symbol}/technical-analysis`;
-                
-                try {
-                    const response = await fetch(url, {
-                        headers: {
-                            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-                            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36'
-                        }
-                    });
-                    
-                    if (!response.ok) {
-                        throw new Error(`Barchart.com API returned error: ${response.status} ${response.statusText}`);
-                    }
-                    
-                    const html = await response.text();
-                    
-                    // Extract current price from JSON data in script tag
-                    let currentPrice = 0;
-                    try {
-                        // Try to match "lastPrice":23413.67 or "lastPrice":"23,413.67" or "lastPrice": "23413.67"
-                        // Pattern: "lastPrice": followed by optional whitespace, optional quote, number with commas and decimals, optional quote
-                        // Use a more explicit pattern that handles quoted strings properly
-                        let bcDataMatch = html.match(/"lastPrice"\s*:\s*"([^"]+)"/);  // Try quoted first
-                        if (!bcDataMatch) {
-                            bcDataMatch = html.match(/"lastPrice"\s*:\s*([0-9,]+\.?[0-9]*)/);  // Try unquoted
-                        }
-                        
-                        if (bcDataMatch && bcDataMatch[1]) {
-                            // Remove commas from the number string before parsing
-                            const priceStr = bcDataMatch[1].replace(/,/g, '');
-                            currentPrice = parseFloat(priceStr);
-                            if (!isNaN(currentPrice) && currentPrice > 0) {
-                                console.log('Extracted current price:', currentPrice, 'from string:', bcDataMatch[1]);
-                            } else {
-                                console.warn('Invalid price extracted:', priceStr, 'from:', bcDataMatch[1]);
-                            }
-                        } else {
-                            console.warn('No match found for lastPrice in HTML');
-                            // Try to find any occurrence of lastPrice for debugging
-                            const debugMatch = html.match(/"lastPrice"[^}]{0,100}/);
-                            if (debugMatch) {
-                                console.warn('Found lastPrice context:', debugMatch[0]);
-                            }
-                        }
-                    } catch (error) {
-                        console.warn('Failed to extract current price from JSON', error);
-                    }
-                    
-                    // Extract 200-day SMA from HTML table
-                    let sma200 = 0;
-                    try {
-                        const smaMatch = html.match(/<td>200-Day<\/td>\s*<td[^>]*>\s*([\d,]+\.?\d*)\s*<\/td>/);
-                        if (smaMatch && smaMatch[1]) {
-                            sma200 = parseFloat(smaMatch[1].replace(/,/g, ''));
-                            console.log('Extracted 200-day SMA:', sma200);
-                        }
-                    } catch (error) {
-                        console.warn('Failed to extract 200-day SMA from HTML', error);
-                    }
-                    
-                    if (currentPrice <= 0 || sma200 <= 0) {
-                        throw new Error('Failed to extract valid data - currentPrice: ' + currentPrice + ', sma200: ' + sma200);
-                    }
-                    
-                    console.log('Successfully fetched data from barchart.com via fetch - Price:', currentPrice, ', SMA200:', sma200);
-                    return { currentPrice: currentPrice, sma200: sma200 };
-                } catch (fetchError) {
-                    console.error('Fetch API also failed:', fetchError);
-                    throw new Error('Both Android interface and fetch API failed. Android interface error: ' + 
-                                  (window.Android ? 'available but returned invalid data' : 'not available') + 
-                                  '. Fetch error: ' + fetchError.message);
-                }
-                
-            } catch (error) {
-                console.error('Error fetching data from barchart.com:', error);
-                console.error('Error details:', error.message, error.stack);
-                throw new Error('Failed to fetch data from barchart.com: ' + error.message);
-            }
-        }
-
-        // Calculate SMA from daily data
-        function calculateSMA(data, period) {
-            const values = Object.values(data).map(entry => parseFloat(entry['4. close']));
-            if (values.length < period) {
-                throw new Error(`Not enough data points for ${period}-day SMA calculation`);
-            }
-            
-            const lastPeriodValues = values.slice(0, period);
-            const sum = lastPeriodValues.reduce((acc, val) => acc + val, 0);
-            return sum / period;
-        }
-
-        // Determine trading signal based on strategy
-        function determineSignal(currentPrice, sma, buyThreshold, sellThreshold) {
-            const percentage = ((currentPrice - sma) / sma) * 100;
-            
-            if (percentage >= 40) {
-                return { signal: 'SELL ALL', class: 'sell-all', percentage: percentage };
-            } else if (percentage >= 30) {
-                return { signal: 'SELL 80%', class: 'sell-80', percentage: percentage };
-            } else if (percentage >= buyThreshold) {
-                return { signal: 'BUY', class: 'buy', percentage: percentage };
-            } else if (percentage <= -sellThreshold) {
-                return { signal: 'SELL', class: 'sell', percentage: percentage };
-            } else {
-                return { signal: 'HOLD', class: 'hold', percentage: percentage };
-            }
-        }
-
-        // Fetch data from Yahoo Finance API
-        async function fetchData() {
-            saveSettings();
-            showLoading();
-
-            try {
-                // Get selected index symbol
-                const selectedIndex = document.getElementById('indexSelect').value;
-                const config = indexConfig[selectedIndex];
-                
-                // Fetch current price and 200-day SMA from barchart.com
-                console.log('Fetching data from barchart.com for symbol:', config.symbol);
-                const barchartData = await fetchBarchartData(config.symbol);
-                
-                if (!barchartData || !barchartData.currentPrice || !barchartData.sma200) {
-                    throw new Error('No valid data received from barchart.com');
-                }
-                
-                const currentPrice = barchartData.currentPrice;
-                const sma = barchartData.sma200;
-
-                // currentPrice and sma are already extracted from barchartData above
-
-                // Get thresholds
-                const buyThreshold = parseFloat(document.getElementById('buyThreshold').value);
-                const sellThreshold = parseFloat(document.getElementById('sellThreshold').value);
-
-                // Determine signal
-                const signalData = determineSignal(currentPrice, sma, buyThreshold, sellThreshold);
-
-                // Display data
-                displayData(currentPrice, sma, signalData);
-
-            } catch (error) {
-                showError('Error fetching data: ' + error.message);
-            }
-        }
-
-        // Display the fetched data
-        function displayData(currentPrice, sma, signalData) {
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('error').style.display = 'none';
-            document.getElementById('dataDisplay').style.display = 'block';
-            document.getElementById('tradingSignal').style.display = 'block';
-
-            // Update data display
-            document.getElementById('currentLevel').textContent = currentPrice.toFixed(2);
-            document.getElementById('smaValue').textContent = sma.toFixed(2);
-            document.getElementById('difference').textContent = (currentPrice - sma).toFixed(2);
-            document.getElementById('percentage').textContent = signalData.percentage.toFixed(2) + '%';
-
-            // Update signal display
-            const signalElement = document.getElementById('tradingSignal');
-            const signalText = document.getElementById('signalText');
-            
-            signalText.textContent = signalData.signal;
-            signalElement.className = 'signal ' + signalData.class;
-        }
-
-        // Show loading state
-        function showLoading() {
-            document.getElementById('loading').style.display = 'block';
-            document.getElementById('error').style.display = 'none';
-            document.getElementById('dataDisplay').style.display = 'none';
-            document.getElementById('tradingSignal').style.display = 'none';
-        }
-
-        // Show error message
-        function showError(message) {
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('error').style.display = 'block';
-            document.getElementById('error').textContent = message;
-            document.getElementById('dataDisplay').style.display = 'none';
-            document.getElementById('tradingSignal').style.display = 'none';
-        }
-
-
-        // Auto-fetch data on page load (no API key required for Yahoo Finance)
-        function autoFetchIfReady() {
-                // Small delay to ensure UI is fully loaded
-                setTimeout(() => {
-                    fetchData();
-                }, 500);
-        }
-
-
-        // Initialize the page
-        window.onload = function() {
-            loadSettings();
-            autoFetchIfReady();
-            
-            // Add event listeners to notification settings to auto-save and reschedule
-            const notifTimeInput = document.getElementById('notifTime');
-            const notifFrequencySelect = document.getElementById('notifFrequency');
-            
-            if (notifTimeInput) {
-                notifTimeInput.addEventListener('change', function() {
-                    console.log('Notification time changed to:', this.value);
-                    saveSettings();
-                });
-                notifTimeInput.addEventListener('input', function() {
-                    // Also save on input for immediate feedback (though change is usually enough)
-                    console.log('Notification time input:', this.value);
-                });
-            }
-            
-            if (notifFrequencySelect) {
-                notifFrequencySelect.addEventListener('change', function() {
-                    console.log('Notification frequency changed to:', this.value);
-                    saveSettings();
-                });
-            }
-            
-            // API key input removed, no event listeners needed
-        };
-
-    </script>
+    setTimeout(() => {
+      if (isBrowser) {
+        const buyT = parseFloat(document.getElementById('buyThreshold').value) || 4;
+        const selT = parseFloat(document.getElementById('sellThreshold').value) || 3;
+        tracked.forEach(sym => {
+          const m = MOCK[sym];
+          results[sym] = m
+            ? { state: 'done', price: m.currentPrice, sma: m.sma200,
+                ...determineSignal(m.currentPrice, m.sma200, buyT, selT) }
+            : { state: 'error', msg: 'No mock data' };
+        });
+        renderCards();
+        hintSwipe();
+        const time = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        document.getElementById('lastUpdated').textContent = `Updated ${time}`;
+      } else {
+        // On device: refresh ALL tracked indices every time home opens.
+        fetchAll();
+      }
+    }, 500);
+  };
+</script>
 </body>
 </html>

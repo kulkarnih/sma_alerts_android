@@ -34,94 +34,173 @@ public class SMAWorker extends Worker {
     @NonNull
     @Override
     public Result doWork() {
+        Context ctx = getApplicationContext();
         try {
-            // Read settings
-            String index = PrefsHelper.getString(getApplicationContext(), PrefsHelper.KEY_INDEX, "$SPX");
-            int smaPeriod = PrefsHelper.getInt(getApplicationContext(), PrefsHelper.KEY_SMA, 200);
-            float buy = PrefsHelper.getFloat(getApplicationContext(), PrefsHelper.KEY_BUY, 4.0f);
-            float sell = PrefsHelper.getFloat(getApplicationContext(), PrefsHelper.KEY_SELL, 3.0f);
+            // Read settings shared across all tracked indices
+            float buy = PrefsHelper.getFloat(ctx, PrefsHelper.KEY_BUY, 4.0f);
+            float sell = PrefsHelper.getFloat(ctx, PrefsHelper.KEY_SELL, 3.0f);
+            String notifFrequency = PrefsHelper.getString(ctx, PrefsHelper.KEY_NOTIF_FREQUENCY, "on_change");
 
-            // Handle case where index might be stored as string "null" from JavaScript
-            String symbol = "$SPX"; // Default
-            if (index != null && !index.isEmpty() && !"null".equalsIgnoreCase(index)) {
-                symbol = index;
+            List<String> tracked = readTrackedSymbols(ctx);
+            JSONObject notifEnabledMap = readNotifEnabled(ctx);
+
+            Log.i(TAG, "Analyzing " + tracked.size() + " tracked indices: " + tracked
+                    + " (frequency=" + notifFrequency + ")");
+
+            int successCount = 0;
+            // Notification lines for symbols that qualify under the current frequency mode.
+            List<String> notifyLines = new ArrayList<>();
+
+            for (String symbol : tracked) {
+                JSONObject barchartData = getBarchartData(symbol);
+                if (barchartData == null || !barchartData.has("currentPrice") || !barchartData.has("sma200")) {
+                    Log.e(TAG, "Failed to fetch data for symbol: " + symbol + " — skipping");
+                    continue; // per-symbol failure: skip, keep going
+                }
+
+                double current;
+                double sma;
+                try {
+                    current = barchartData.getDouble("currentPrice");
+                    sma = barchartData.getDouble("sma200");
+                } catch (Exception e) {
+                    Log.e(TAG, "Malformed data for symbol: " + symbol, e);
+                    continue;
+                }
+
+                double pct = ((current - sma) / sma) * 100.0;
+                String signal = determineSignal(pct, buy, sell);
+                successCount++;
+
+                String lastSignal = PrefsHelper.getString(ctx, PrefsHelper.KEY_LAST_SIGNAL_PREFIX + symbol, "");
+                boolean changed = lastSignal != null && !lastSignal.isEmpty() && !signal.equals(lastSignal);
+
+                Log.d(TAG, symbol + ": " + signal + " (" + String.format(Locale.US, "%.2f%%", pct)
+                        + "), last=" + lastSignal + ", changed=" + changed);
+
+                // A symbol is notification-eligible only when its bell is on (default: on).
+                boolean bellOn = notifEnabledMap.optBoolean(symbol, true);
+                boolean include = false;
+                if ("daily".equals(notifFrequency)) {
+                    include = bellOn;
+                } else if ("on_change".equals(notifFrequency)) {
+                    include = bellOn && changed;
+                } // "disabled" -> never
+
+                if (include) {
+                    notifyLines.add(String.format(Locale.US, "%s: %s (%.2f%%)",
+                            displayName(symbol), signal, pct));
+                }
+
+                // Always persist the latest per-symbol signal so change detection stays correct.
+                PrefsHelper.putString(ctx, PrefsHelper.KEY_LAST_SIGNAL_PREFIX + symbol, signal);
+                PrefsHelper.putFloat(ctx, PrefsHelper.KEY_LAST_PERCENT_PREFIX + symbol, (float) pct);
+                PrefsHelper.putString(ctx, PrefsHelper.KEY_LAST_DATE_PREFIX + symbol, today());
             }
 
-            // Fetch current price and 200-day SMA from barchart.com
-            Log.i(TAG, "Fetching data from barchart.com for symbol: " + symbol);
-            JSONObject barchartData = getBarchartData(symbol);
-            
-            if (barchartData == null || !barchartData.has("currentPrice") || !barchartData.has("sma200")) {
-                Log.e(TAG, "Failed to fetch data from barchart.com");
-                String notifFrequency = PrefsHelper.getString(getApplicationContext(), PrefsHelper.KEY_NOTIF_FREQUENCY, "on_change");
+            // Emit ONE consolidated notification covering all qualifying indices.
+            if (!"disabled".equals(notifFrequency) && !notifyLines.isEmpty()) {
+                NotificationHelper.createChannels(ctx);
+                String msg = joinLines(notifyLines);
+                NotificationHelper.notifySignal(ctx, "SMA Alerts", msg);
+                Log.i(TAG, "Consolidated notification sent: " + msg);
+            } else {
+                Log.d(TAG, "No notification sent (frequency=" + notifFrequency
+                        + ", qualifyingLines=" + notifyLines.size() + ")");
+            }
+
+            WorkScheduler.scheduleDailyAnalysis(ctx);
+
+            // Retry only if EVERY tracked symbol failed to fetch; otherwise consider it a success.
+            if (successCount == 0 && !tracked.isEmpty()) {
+                Log.e(TAG, "All tracked indices failed to fetch data. Will retry later.");
                 if (!"disabled".equals(notifFrequency)) {
-                    NotificationHelper.createChannels(getApplicationContext());
-                    NotificationHelper.notifySignal(getApplicationContext(), "SMA Alerts", "Failed to fetch data from barchart.com. Will retry later.");
+                    NotificationHelper.createChannels(ctx);
+                    NotificationHelper.notifySignal(ctx, "SMA Alerts",
+                            "Failed to fetch data from barchart.com. Will retry later.");
                 }
-                WorkScheduler.scheduleDailyAnalysis(getApplicationContext());
                 return Result.retry();
             }
-            
-            // Extract current price and SMA from barchart data
-            double current = barchartData.getDouble("currentPrice");
-            double sma = barchartData.getDouble("sma200");
-            
-            Log.i(TAG, "Got data from barchart.com - Price: " + current + ", SMA200: " + sma);
-            double pct = ((current - sma) / sma) * 100.0;
-            String signal = determineSignal(pct, buy, sell);
-
-            // Compare with yesterday
-            String lastSignal = PrefsHelper.getString(getApplicationContext(), PrefsHelper.KEY_LAST_SIGNAL, "");
-            String lastDate = PrefsHelper.getString(getApplicationContext(), PrefsHelper.KEY_LAST_DATE, "");
-            String notifFrequency = PrefsHelper.getString(getApplicationContext(), PrefsHelper.KEY_NOTIF_FREQUENCY, "on_change");
-
-            Log.d(TAG, "Current signal: " + signal + " (" + String.format(Locale.US, "%.2f%%", pct) + ")");
-            Log.d(TAG, "Last signal: " + lastSignal + " on " + lastDate);
-            Log.d(TAG, "Notification frequency: " + notifFrequency);
-
-            boolean shouldNotify = false;
-            
-            if ("disabled".equals(notifFrequency)) {
-                Log.d(TAG, "Notifications disabled, skipping notification");
-            } else if ("daily".equals(notifFrequency)) {
-                // Send notification every day regardless of signal change
-                shouldNotify = true;
-                Log.d(TAG, "Daily notification mode: sending notification");
-            } else if ("on_change".equals(notifFrequency)) {
-                // Only send notification when signal changes (default behavior)
-                // On first run (empty lastSignal), don't notify (no change detected)
-                if (lastSignal == null || lastSignal.isEmpty()) {
-                    Log.d(TAG, "First run - no previous signal to compare, skipping notification");
-                } else if (!signal.equals(lastSignal)) {
-                    shouldNotify = true;
-                    Log.d(TAG, "Signal change detected: " + lastSignal + " -> " + signal);
-                } else {
-                    Log.d(TAG, "No signal change, no notification sent");
-                }
-            }
-
-            if (shouldNotify) {
-                NotificationHelper.createChannels(getApplicationContext());
-                String msg = String.format(Locale.US, "Signal: %s (%.2f%% vs SMA)", signal, pct);
-                NotificationHelper.notifySignal(getApplicationContext(), "SMA Alerts", msg);
-                Log.i(TAG, "Notification sent: " + msg);
-            }
-
-            // Persist as today's signal
-            PrefsHelper.putString(getApplicationContext(), PrefsHelper.KEY_LAST_SIGNAL, signal);
-            PrefsHelper.putFloat(getApplicationContext(), PrefsHelper.KEY_LAST_PERCENT, (float) pct);
-            PrefsHelper.putString(getApplicationContext(), PrefsHelper.KEY_LAST_DATE, today());
-
-            // Reschedule the next run
-            WorkScheduler.scheduleDailyAnalysis(getApplicationContext());
             return Result.success();
-            
+
         } catch (Exception e) {
             Log.e(TAG, "Unexpected error in SMAWorker", e);
             // Try again later with exponential backoff
-            WorkScheduler.scheduleDailyAnalysis(getApplicationContext());
+            WorkScheduler.scheduleDailyAnalysis(ctx);
             return Result.retry();
         }
+    }
+
+    /**
+     * Reads the tracked symbols from prefs. Falls back to the legacy single-index key, then to
+     * a hard default of ["$SPX"], so users upgrading from the single-index build keep working.
+     * Made package-private for testing.
+     */
+    static List<String> readTrackedSymbols(Context ctx) {
+        List<String> symbols = new ArrayList<>();
+        String json = PrefsHelper.getString(ctx, PrefsHelper.KEY_TRACKED_INDEXES, "");
+        if (json != null && !json.isEmpty() && !"null".equalsIgnoreCase(json)) {
+            try {
+                JSONArray arr = new JSONArray(json);
+                for (int i = 0; i < arr.length(); i++) {
+                    String s = arr.optString(i, "").trim();
+                    if (!s.isEmpty() && !symbols.contains(s)) {
+                        symbols.add(s);
+                    }
+                }
+            } catch (Exception e) {
+                Log.w(TAG, "Failed to parse tracked indexes JSON: " + json, e);
+            }
+        }
+        if (symbols.isEmpty()) {
+            // Legacy single-index fallback
+            String legacy = PrefsHelper.getString(ctx, PrefsHelper.KEY_INDEX, "");
+            if (legacy != null && !legacy.isEmpty() && !"null".equalsIgnoreCase(legacy)) {
+                symbols.add(legacy);
+            }
+        }
+        if (symbols.isEmpty()) {
+            symbols.add("$SPX");
+        }
+        return symbols;
+    }
+
+    /**
+     * Reads the per-symbol notification-enabled map (sym -> bool). Returns an empty object when
+     * absent/malformed; callers default a missing symbol to enabled. Package-private for testing.
+     */
+    static JSONObject readNotifEnabled(Context ctx) {
+        String json = PrefsHelper.getString(ctx, PrefsHelper.KEY_NOTIF_ENABLED, "");
+        if (json != null && !json.isEmpty() && !"null".equalsIgnoreCase(json)) {
+            try {
+                return new JSONObject(json);
+            } catch (Exception e) {
+                Log.w(TAG, "Failed to parse notifEnabled JSON: " + json, e);
+            }
+        }
+        return new JSONObject();
+    }
+
+    /** Human-friendly display name for a symbol; falls back to the symbol itself. */
+    static String displayName(String symbol) {
+        if ("$SPX".equals(symbol)) return "S&P 500";
+        if ("$NASX".equals(symbol)) return "NASDAQ Composite";
+        if ("URTH".equals(symbol)) return "MSCI World";
+        return symbol;
+    }
+
+    /**
+     * Joins per-index summary lines into a single consolidated notification body, one index per
+     * line. Newline separation lets BigTextStyle render each index on its own line instead of
+     * wrapping mid-item across an inline separator.
+     */
+    static String joinLines(List<String> lines) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < lines.size(); i++) {
+            if (i > 0) sb.append('\n');
+            sb.append(lines.get(i));
+        }
+        return sb.toString();
     }
 
 

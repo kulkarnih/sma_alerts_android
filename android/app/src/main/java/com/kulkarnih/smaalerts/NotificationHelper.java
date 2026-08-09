@@ -48,10 +48,12 @@ public final class NotificationHelper {
     }
 
     public static void notifySignal(Context context, String title, String message) {
-        // Use app launcher icon for notifications
-        int iconId = context.getResources().getIdentifier("ic_launcher", "mipmap", context.getPackageName());
+        // Status-bar small icons are drawn from the alpha channel only, so we use a
+        // dedicated monochrome glyph. Using the full-color launcher icon here renders
+        // as a blank white silhouette.
+        int iconId = context.getResources().getIdentifier("ic_stat_notif", "drawable", context.getPackageName());
         if (iconId == 0) {
-            // Fallback to system icon if launcher icon not found
+            // Fallback to system icon if the notification icon is missing.
             iconId = android.R.drawable.ic_dialog_info;
         }
         
@@ -78,6 +80,8 @@ public final class NotificationHelper {
                 .setContentTitle(title)
                 .setContentText(message)
                 .setStyle(new NotificationCompat.BigTextStyle().bigText(message))
+                .setColor(0xFF26A69A) // app teal — tints the small icon in the shade
+                .setColorized(false)
                 .setPriority(NotificationCompat.PRIORITY_DEFAULT)
                 .setSound(soundUri)
                 .setVibrate(vibrationPattern)

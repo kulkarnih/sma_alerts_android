@@ -11,9 +11,16 @@ public final class PrefsHelper {
     public static final String KEY_BUY = "buyThreshold"; // float percent
     public static final String KEY_SELL = "sellThreshold"; // float percent
     public static final String KEY_SMA = "smaPeriod"; // int
-    public static final String KEY_LAST_SIGNAL = "lastSignal"; // string
-    public static final String KEY_LAST_PERCENT = "lastPercent"; // float
+    public static final String KEY_LAST_SIGNAL = "lastSignal"; // string (legacy single-index)
+    public static final String KEY_LAST_PERCENT = "lastPercent"; // float (legacy single-index)
     public static final String KEY_LAST_DATE = "lastDate"; // yyyy-MM-dd
+
+    // Multi-index watchlist keys (new UX)
+    public static final String KEY_TRACKED_INDEXES = "trackedIndexes"; // JSON array string, e.g. ["$SPX","$NASX"]
+    public static final String KEY_NOTIF_ENABLED = "notifEnabled"; // JSON object string, sym->bool
+    public static final String KEY_LAST_SIGNAL_PREFIX = "lastSignal_"; // per-symbol, e.g. lastSignal_$SPX
+    public static final String KEY_LAST_PERCENT_PREFIX = "lastPercent_"; // per-symbol
+    public static final String KEY_LAST_DATE_PREFIX = "lastDate_"; // per-symbol
 
     // Notification preferences
     public static final String KEY_NOTIF_FREQUENCY = "notifFrequency"; // string: "disabled", "on_change", "daily"

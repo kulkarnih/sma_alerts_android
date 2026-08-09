@@ -48,6 +48,9 @@ public class MainActivity extends BridgeActivity {
                 captureKey("buyThreshold", PrefsHelper.KEY_BUY);
                 captureKey("sellThreshold", PrefsHelper.KEY_SELL);
                 captureKey("selectedIndex", PrefsHelper.KEY_INDEX);
+                // Multi-index watchlist state (stored as raw JSON strings)
+                captureKey("trackedIndexes", PrefsHelper.KEY_TRACKED_INDEXES);
+                captureKey("notifEnabled", PrefsHelper.KEY_NOTIF_ENABLED);
                 // SMA period is always 200 now, no need to capture it
                 // Notification frequency (new dropdown-based system)
                 captureKey("notifFrequency", PrefsHelper.KEY_NOTIF_FREQUENCY);
@@ -117,9 +120,12 @@ public class MainActivity extends BridgeActivity {
     }
 
     private void captureKey(String localKey, String prefKey) {
+        boolean isJsonKey = prefKey.equals(PrefsHelper.KEY_TRACKED_INDEXES)
+                || prefKey.equals(PrefsHelper.KEY_NOTIF_ENABLED);
         evalJS("localStorage.getItem('" + localKey + "')", val -> {
             if (val != null) {
-                String clean = trimQuotes(val);
+                // JSON-valued keys must fully decode (inner quotes escaped); others just trim.
+                String clean = isJsonKey ? decodeJsString(val) : trimQuotes(val);
                 // Skip storing if value is null, empty, or the string "null"
                 if (clean == null || clean.isEmpty() || "null".equalsIgnoreCase(clean)) {
                     return;
@@ -150,6 +156,24 @@ public class MainActivity extends BridgeActivity {
         return s;
     }
 
+    /**
+     * Decodes a raw result from {@code WebView.evaluateJavascript}, which is a JSON-encoded
+     * value. For a stored string like {@code ["$SPX","$NASX"]}, evaluateJavascript returns
+     * {@code "[\"$SPX\",\"$NASX\"]"}; this returns the underlying string with inner quotes
+     * unescaped. Returns "" for a JS null. Falls back to {@link #trimQuotes} on parse failure.
+     */
+    private static String decodeJsString(String jsResult) {
+        if (jsResult == null) return "";
+        try {
+            Object parsed = new org.json.JSONTokener(jsResult).nextValue();
+            if (parsed == null || parsed == JSONObject.NULL) return "";
+            if (parsed instanceof String) return (String) parsed;
+            return parsed.toString();
+        } catch (Exception e) {
+            return trimQuotes(jsResult);
+        }
+    }
+
 
     /**
      * Called from JavaScript when notification settings change
@@ -165,7 +189,7 @@ public class MainActivity extends BridgeActivity {
         runOnUiThread(() -> {
             // Use a counter to track when all async operations complete
             final int[] completionCount = {0};
-            final int totalOperations = 4; // Include API key capture
+            final int totalOperations = 6; // freq + hour + minute + trailing + trackedIndexes + notifEnabled
             
             Runnable rescheduleIfComplete = () -> {
                 completionCount[0]++;
@@ -208,6 +232,27 @@ public class MainActivity extends BridgeActivity {
                     Log.d(TAG, "Notification minute updated: " + minute);
                 } catch (Exception e) {
                     Log.w(TAG, "Failed to parse notification minute", e);
+                }
+                rescheduleIfComplete.run();
+            });
+            // Multi-index watchlist state (stored as raw JSON strings)
+            evalJS("localStorage.getItem('trackedIndexes')", val -> {
+                if (val != null) {
+                    String clean = decodeJsString(val);
+                    if (clean != null && !clean.isEmpty() && !"null".equalsIgnoreCase(clean)) {
+                        PrefsHelper.putString(this, PrefsHelper.KEY_TRACKED_INDEXES, clean);
+                        Log.d(TAG, "Tracked indexes updated: " + clean);
+                    }
+                }
+                rescheduleIfComplete.run();
+            });
+            evalJS("localStorage.getItem('notifEnabled')", val -> {
+                if (val != null) {
+                    String clean = decodeJsString(val);
+                    if (clean != null && !clean.isEmpty() && !"null".equalsIgnoreCase(clean)) {
+                        PrefsHelper.putString(this, PrefsHelper.KEY_NOTIF_ENABLED, clean);
+                        Log.d(TAG, "Notif-enabled map updated: " + clean);
+                    }
                 }
                 rescheduleIfComplete.run();
             });

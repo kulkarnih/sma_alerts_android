@@ -22,7 +22,6 @@ public class IntegrationTest {
     public void setUp() {
         context = RuntimeEnvironment.getApplication();
         // Set up test preferences
-        PrefsHelper.putString(context, PrefsHelper.KEY_API, "test-api-key");
         PrefsHelper.putString(context, PrefsHelper.KEY_INDEX, "SPY");
         PrefsHelper.putInt(context, PrefsHelper.KEY_SMA, 200);
         PrefsHelper.putFloat(context, PrefsHelper.KEY_BUY, 4.0f);
@@ -47,13 +46,13 @@ public class IntegrationTest {
     @Test
     public void testPrefsHelperIntegration() {
         // Test complete settings flow
-        PrefsHelper.putString(context, PrefsHelper.KEY_API, "test-key");
+        PrefsHelper.putString(context, PrefsHelper.KEY_INDEX, "^IXIC");
         PrefsHelper.putFloat(context, PrefsHelper.KEY_BUY, 5.0f);
-        
-        String apiKey = PrefsHelper.getString(context, PrefsHelper.KEY_API, "");
+
+        String index = PrefsHelper.getString(context, PrefsHelper.KEY_INDEX, "");
         float buyThreshold = PrefsHelper.getFloat(context, PrefsHelper.KEY_BUY, 0f);
-        
-        assertEquals("test-key", apiKey);
+
+        assertEquals("^IXIC", index);
         assertEquals(5.0f, buyThreshold, 0.001f);
     }
 

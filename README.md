@@ -1,12 +1,12 @@
 # SMA Alerts 📈 (Android App)
 
-An Android app that generates trading signals based on Simple Moving Average (SMA) analysis for SPY and QQQM. It runs a daily background analysis and sends a notification when the signal changes.
+An Android app that generates trading signals based on Simple Moving Average (SMA) analysis for major market indices. It runs a daily background analysis and sends a notification when the signal changes.
 
 ## 🚀 Features
 
 ### **Trading Strategy**
 - **Configurable SMA Period**: Set any period from 1 to 500 days (default: 200 days)
-- **Dual Index Support**: Track S&P 500 (SPY) or NASDAQ (QQQM)
+- **Multi-Index Watchlist**: Track S&P 500 (`^GSPC`), NASDAQ Composite (`^IXIC`), and MSCI World (`URTH`)
 - **Smart Signal Generation**:
   - 🟢 **BUY**: When index is X% above SMA
   - 🔴 **SELL**: When index is Y% below SMA
@@ -18,13 +18,12 @@ An Android app that generates trading signals based on Simple Moving Average (SM
 - **Daily Background Analysis**: Scheduled with WorkManager once per day (weekdays)
 - **Notifications**: Single master toggle; alerts only when the signal changes
 - **Notification Time**: Configurable in your local timezone (default = 30 minutes before NYSE close, with DST handling)
-- **Auto-fetch on Launch**: If API key exists, data fetch and signal generation run on app open.
-- **Persistent Settings**: Thresholds, SMA period, index, API key, notifications.
+- **Auto-fetch on Launch**: Data fetch and signal generation run on app open.
+- **Persistent Settings**: Thresholds, SMA period, tracked indices, notifications.
 
 ### **Data & Security**
-- **Alpha Vantage API**: Daily market data (no realtime requirement)
-- **Local SMA Calculation**: Calculated on-device for reliability
-- **API Key Handling**: Obfuscated in the web layer, persisted natively in SharedPreferences
+- **Yahoo Finance API**: Daily market data via the public JSON chart endpoint (no API key required)
+- **Local SMA Calculation**: Closing prices fetched, SMA computed on-device for reliability
 - **Resilience**: Retry/backoff for network; robust error handling in background worker
 
 ## 🛠️ Android Setup
@@ -33,7 +32,6 @@ An Android app that generates trading signals based on Simple Moving Average (SM
 - Android Studio (latest)
 - Android SDK + build tools
 - Java 17 (the project is pre-configured to use JDK 17 via Gradle settings)
-- Alpha Vantage API key (free)
 
 ### **Install and Run**
 1) Clone the repository
@@ -58,8 +56,8 @@ cd sma_alerts
 
 ### **Basic Workflow**
 1. Open the app (first launch may ask for notification permissions on Android 13+)
-2. Enter your Alpha Vantage API key (Settings section)
-3. Set thresholds (Buy X%, Sell Y%), SMA period, and index (SPY/QQQM)
+2. Set thresholds (Buy X%, Sell Y%) and SMA period
+3. Choose which indices to track (S&P 500, NASDAQ Composite, MSCI World)
 4. Enable notifications and set your preferred local notification time
 5. Tap "Generate Signal" to fetch now; background analysis runs daily and notifies on signal change
 
@@ -67,7 +65,7 @@ cd sma_alerts
 - **Buy Signal (X%)**: Percent above SMA to trigger BUY (default: 4%)
 - **Sell Signal (Y%)**: Percent below SMA to trigger SELL (default: 3%)
 - **SMA Period**: Moving average days (default: 200)
-- **Index Selection**: SPY or QQQM
+- **Index Selection**: S&P 500 (`^GSPC`), NASDAQ Composite (`^IXIC`), MSCI World (`URTH`)
 - **Notifications**: Master toggle + time in your timezone (default = 30 min before NYSE close)
 
 ## 🔔 Notifications & Scheduling
@@ -82,7 +80,7 @@ cd sma_alerts
 ### **Architecture**
 - **Android**: Java + WorkManager + Notification channels
 - **WebView UI**: HTML/CSS/JS bundled via `android/app/src/main/assets/public/index.html`
-- **Data Source**: Alpha Vantage (TIME_SERIES_DAILY)
+- **Data Source**: Yahoo Finance JSON chart API (`query1.finance.yahoo.com/v8/finance/chart/`)
 - **Persistence**: SharedPreferences (native) + localStorage (web layer for initial capture)
 
 ### **SMA Calculation**
@@ -92,10 +90,9 @@ cd sma_alerts
 - **Accuracy**: More reliable than API-provided SMA
 
 ### **API Integration**
-- **Provider**: Alpha Vantage (free tier)
-- **Endpoint**: TIME_SERIES_DAILY
-- **Rate Limits**: 5 calls/minute, 500 calls/day
-- **Symbols**: SPY (S&P 500), QQQM (NASDAQ)
+- **Provider**: Yahoo Finance (public JSON chart endpoint, no key required)
+- **Endpoint**: `/v8/finance/chart/{symbol}?interval=1d&range={1y|5y}` (`^` URL-encoded as `%5E`)
+- **Symbols**: `^GSPC` (S&P 500), `^IXIC` (NASDAQ Composite), `URTH` (MSCI World)
 
 ## 🧭 Permissions
 
@@ -106,10 +103,10 @@ Declared in `AndroidManifest.xml`:
 
 ## 🔒 Security
 
-### **API Key Handling**
-- **Obfuscation (web UI)**: Base64 + reverse, captured into native storage on launch
-- **Native Storage**: SharedPreferences (not exported)
-- **Privacy**: No sharing beyond Alpha Vantage requests
+### **Privacy**
+- **No API Key Required**: Market data comes from Yahoo Finance's public endpoint
+- **Native Storage**: Settings persisted in SharedPreferences (not exported)
+- **No Personal Data**: Requests contain only the index symbol being fetched
 
 ## 🎯 Trading Strategy
 
@@ -121,12 +118,6 @@ if (percentage >= buyThreshold) return 'BUY';
 if (percentage <= -sellThreshold) return 'SELL';
 return 'HOLD';
 ```
-
-### **Why QQQM over QQQ?**
-- **Lower Expense Ratio**: 0.15% vs 0.20%
-- **Better Tracking**: Reduced tracking error
-- **Same Performance**: Identical underlying index
-- **Cost Effective**: Better for long-term investors
 
 ## 🤝 Contributing
 
@@ -194,9 +185,7 @@ This application is for educational and informational purposes only. It is not i
 
 ## 🙏 Acknowledgments
 
-- [Alpha Vantage](https://www.alphavantage.co/) for providing market data API
-- [Invesco](https://www.invesco.com/) for QQQM ETF
-- [State Street](https://www.ssga.com/) for SPY ETF
+- [Yahoo Finance](https://finance.yahoo.com/) for providing market data
 
 ---
 

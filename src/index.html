@@ -763,19 +763,32 @@
     <div class="sheet-header">Settings</div>
 
     <div class="sheet-section">
+      <div class="sheet-section-label">Moving Average</div>
+      <div class="sheet-rows">
+        <div class="sheet-row">
+          <div>
+            <div class="sheet-row-label">SMA period</div>
+            <div class="sheet-row-hint">days used for the average (1–200)</div>
+          </div>
+          <input class="sheet-input" type="number" id="smaPeriod" value="200" step="1" min="1" max="200">
+        </div>
+      </div>
+    </div>
+
+    <div class="sheet-section">
       <div class="sheet-section-label">Signal Thresholds</div>
       <div class="sheet-rows">
         <div class="sheet-row">
           <div>
             <div class="sheet-row-label">Buy above SMA</div>
-            <div class="sheet-row-hint">% above 200-day average</div>
+            <div class="sheet-row-hint">% above the moving average</div>
           </div>
           <input class="sheet-input" type="number" id="buyThreshold" value="4" step="0.1" min="0" max="100">
         </div>
         <div class="sheet-row">
           <div>
             <div class="sheet-row-label">Sell below SMA</div>
-            <div class="sheet-row-hint">% below 200-day average</div>
+            <div class="sheet-row-hint">% below the moving average</div>
           </div>
           <input class="sheet-input" type="number" id="sellThreshold" value="3" step="0.1" min="0" max="100">
         </div>
@@ -843,17 +856,32 @@
   // Catalog of supported indices. Extensible — add an index by adding one entry
   // here (and a matching MOCK entry below for desktop-browser preview).
   const CATALOG = [
-    { id: '$SPX',  name: 'S&P 500',           symbol: '$SPX'  },
-    { id: '$NASX', name: 'NASDAQ Composite',  symbol: '$NASX' },
+    { id: '^GSPC', name: 'S&P 500',           symbol: '^GSPC' },
+    { id: '^IXIC', name: 'NASDAQ Composite',  symbol: '^IXIC' },
     { id: 'URTH',  name: 'MSCI World',        symbol: 'URTH'  },
   ];
 
+  // Migration map for installs that persisted the old Barchart tickers in localStorage.
+  const SYMBOL_MIGRATIONS = { '$SPX': '^GSPC', '$NASX': '^IXIC' };
+  const mapSymbol = s => SYMBOL_MIGRATIONS[s] || s;
+
+  // Configured SMA period (days). Defaults to 200 when unset/invalid.
+  const smaPeriodValue = () => {
+    const v = parseInt(localStorage.getItem('smaPeriod'), 10);
+    return (v && v >= 1 && v <= 200) ? v : 200;
+  };
+  // Refresh labels that depend on the SMA period.
+  function refreshSmaLabels() {
+    const sub = document.querySelector('.header-sub');
+    if (sub) sub.textContent = `${smaPeriodValue()}-day moving average`;
+  }
+
   // Desktop-browser preview data only. On device, window.Android is present and
-  // this object is bypassed entirely (see fetchBarchartData).
+  // this object is bypassed entirely (see fetchIndexData).
   const MOCK = {
-    '$SPX':  { currentPrice: 5320.45,  sma200: 4987.12  },
-    '$NASX': { currentPrice: 19250.00, sma200: 19100.00 },
-    'URTH':  { currentPrice: 113.20,   sma200: 120.50   },
+    '^GSPC': { currentPrice: 5320.45,  sma: 4987.12  },
+    '^IXIC': { currentPrice: 19250.00, sma: 19100.00 },
+    'URTH':  { currentPrice: 113.20,   sma: 120.50   },
   };
 
   let tracked      = CATALOG.map(c => c.id); // default: track all supported indices
@@ -952,28 +980,40 @@
     const t    = localStorage.getItem('trackedIndexes');
     const buy  = localStorage.getItem('buyThreshold');
     const sell = localStorage.getItem('sellThreshold');
+    const sma  = localStorage.getItem('smaPeriod');
     const freq = localStorage.getItem('notifFrequency');
     const hour = localStorage.getItem('notifHour');
     const min  = localStorage.getItem('notifMinute');
 
     const n = localStorage.getItem('notifEnabled');
     if (n) {
-      try { notifEnabled = JSON.parse(n); } catch (_) { notifEnabled = {}; }
+      try {
+        const parsed = JSON.parse(n);
+        // Migrate old Barchart tickers → Yahoo tickers in the bell map.
+        notifEnabled = {};
+        Object.keys(parsed).forEach(k => { notifEnabled[mapSymbol(k)] = parsed[k]; });
+      } catch (_) { notifEnabled = {}; }
     }
     if (t) {
       try {
         const parsed = JSON.parse(t);
-        // keep only symbols still present in the catalog
-        if (Array.isArray(parsed)) tracked = parsed.filter(s => CATALOG.some(c => c.id === s));
+        // Migrate old tickers, then keep only symbols still present in the catalog (deduped).
+        if (Array.isArray(parsed)) {
+          tracked = [...new Set(parsed.map(mapSymbol))].filter(s => CATALOG.some(c => c.id === s));
+        }
       } catch (_) {}
     } else {
       // Migration from the old single-index UI: seed from selectedIndex if present.
-      const legacy = localStorage.getItem('selectedIndex');
+      const legacy = mapSymbol(localStorage.getItem('selectedIndex'));
       if (legacy && CATALOG.some(c => c.id === legacy)) tracked = [legacy];
     }
+    // Persist any migrated symbols back so the native bridge captures the new tickers.
+    localStorage.setItem('trackedIndexes', JSON.stringify(tracked));
+    localStorage.setItem('notifEnabled',   JSON.stringify(notifEnabled));
 
     if (buy)  document.getElementById('buyThreshold').value  = buy;
     if (sell) document.getElementById('sellThreshold').value = sell;
+    if (sma)  document.getElementById('smaPeriod').value     = sma;
 
     if (freq) document.getElementById('notifFrequency').value = freq;
 
@@ -983,6 +1023,7 @@
         : defaultNotifTime());
 
     updateNotifTimeVisibility();
+    refreshSmaLabels();
   }
 
   function saveSettings() {
@@ -990,6 +1031,7 @@
     localStorage.setItem('trackedIndexes', JSON.stringify(tracked));
     localStorage.setItem('buyThreshold',   document.getElementById('buyThreshold').value);
     localStorage.setItem('sellThreshold',  document.getElementById('sellThreshold').value);
+    localStorage.setItem('smaPeriod',      String(Math.min(200, Math.max(1, parseInt(document.getElementById('smaPeriod').value, 10) || 200))));
     localStorage.setItem('notifFrequency', document.getElementById('notifFrequency').value);
     const [h, m] = (document.getElementById('notifTime').value || '15:30').split(':');
     localStorage.setItem('notifHour',   String(parseInt(h  || '15', 10)));
@@ -997,6 +1039,7 @@
     if (window.Android && typeof window.Android.rescheduleNotifications === 'function') {
       try { window.Android.rescheduleNotifications(); } catch (_) {}
     }
+    refreshSmaLabels();
   }
 
   function defaultNotifTime() {
@@ -1347,7 +1390,7 @@
                 <span class="detail-value">${fmt(r.price)}</span>
               </div>
               <div class="detail-row">
-                <span class="detail-label">200-Day SMA</span>
+                <span class="detail-label">${smaPeriodValue()}-Day SMA</span>
                 <span class="detail-value">${fmt(r.sma)}</span>
               </div>
               <div class="detail-row">
@@ -1402,7 +1445,11 @@
   }
 
   // ── Fetch ─────────────────────────────────────────────────────
-  async function fetchBarchartData(symbol) {
+  // On device, prices + SMA come from the native bridge (Yahoo Finance, computed on-device).
+  // In a plain browser we serve MOCK data for preview. There is no web-layer network fetch:
+  // Yahoo's API isn't CORS-accessible from a file:// WebView, so the native bridge is the
+  // only real data path.
+  async function fetchIndexData(symbol) {
     const isMock = !window.Android &&
       (location.protocol === 'file:' || location.hostname === 'localhost' ||
        location.hostname.endsWith('github.io'));
@@ -1413,38 +1460,25 @@
       throw new Error('No mock data');
     }
     if (window.Android && typeof window.Android.getHistoricalData === 'function') {
-      try {
-        const raw = window.Android.getHistoricalData(symbol);
-        if (raw?.trim()) {
-          const d = JSON.parse(raw);
-          if (d.currentPrice && d.sma200) return d;
-        }
-      } catch (_) {}
+      const raw = window.Android.getHistoricalData(symbol);
+      if (raw?.trim()) {
+        const d = JSON.parse(raw);
+        if (d.currentPrice && d.sma) return d;
+      }
+      throw new Error('Could not fetch data');
     }
-    const res = await fetch(
-      `https://www.barchart.com/stocks/quotes/${symbol}/technical-analysis`,
-      { headers: { 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' } }
-    );
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const html = await res.text();
-    let p = 0, s = 0;
-    const pm = html.match(/"lastPrice"\s*:\s*"?([0-9,]+\.?[0-9]*)"?/);
-    if (pm) p = parseFloat(pm[1].replace(/,/g, ''));
-    const sm = html.match(/<td>200-Day<\/td>\s*<td[^>]*>\s*([\d,]+\.?\d*)\s*<\/td>/);
-    if (sm) s = parseFloat(sm[1].replace(/,/g, ''));
-    if (!p || !s) throw new Error('Could not parse data');
-    return { currentPrice: p, sma200: s };
+    throw new Error('Data source unavailable');
   }
 
   async function fetchOne(sym) {
     results[sym] = { state: 'loading' };
     updateCard(sym);
     try {
-      const d    = await fetchBarchartData(sym);
+      const d    = await fetchIndexData(sym);
       const buyT = parseFloat(document.getElementById('buyThreshold').value)  || 4;
       const selT = parseFloat(document.getElementById('sellThreshold').value) || 3;
-      results[sym] = { state: 'done', price: d.currentPrice, sma: d.sma200,
-                       ...determineSignal(d.currentPrice, d.sma200, buyT, selT) };
+      results[sym] = { state: 'done', price: d.currentPrice, sma: d.sma,
+                       ...determineSignal(d.currentPrice, d.sma, buyT, selT) };
     } catch (e) {
       results[sym] = { state: 'error', msg: e.message };
     }
@@ -1553,8 +1587,8 @@
         tracked.forEach(sym => {
           const m = MOCK[sym];
           results[sym] = m
-            ? { state: 'done', price: m.currentPrice, sma: m.sma200,
-                ...determineSignal(m.currentPrice, m.sma200, buyT, selT) }
+            ? { state: 'done', price: m.currentPrice, sma: m.sma,
+                ...determineSignal(m.currentPrice, m.sma, buyT, selT) }
             : { state: 'error', msg: 'No mock data' };
         });
         renderCards();

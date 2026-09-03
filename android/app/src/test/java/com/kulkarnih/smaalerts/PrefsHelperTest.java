@@ -27,8 +27,8 @@ public class PrefsHelperTest {
 
     @Test
     public void testStringOperations() {
-        PrefsHelper.putString(context, PrefsHelper.KEY_API, "test-api-key");
-        assertEquals("test-api-key", PrefsHelper.getString(context, PrefsHelper.KEY_API, ""));
+        PrefsHelper.putString(context, PrefsHelper.KEY_INDEX, "^GSPC");
+        assertEquals("^GSPC", PrefsHelper.getString(context, PrefsHelper.KEY_INDEX, ""));
         assertEquals("", PrefsHelper.getString(context, "nonexistent", ""));
     }
 

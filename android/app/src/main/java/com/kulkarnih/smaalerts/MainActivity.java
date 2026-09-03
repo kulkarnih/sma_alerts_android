@@ -29,6 +29,9 @@ public class MainActivity extends BridgeActivity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        // Migrate any legacy Barchart tickers ($SPX/$NASX) in prefs to Yahoo tickers (^GSPC/^IXIC).
+        PrefsHelper.migrateLegacySymbols(this);
+
         // Create notification channel and schedule first run
         NotificationHelper.createChannels(this);
         WorkScheduler.scheduleDailyAnalysis(this);
@@ -51,7 +54,8 @@ public class MainActivity extends BridgeActivity {
                 // Multi-index watchlist state (stored as raw JSON strings)
                 captureKey("trackedIndexes", PrefsHelper.KEY_TRACKED_INDEXES);
                 captureKey("notifEnabled", PrefsHelper.KEY_NOTIF_ENABLED);
-                // SMA period is always 200 now, no need to capture it
+                // SMA period (configurable 1–200; the background worker computes the SMA on-device)
+                captureKey("smaPeriod", PrefsHelper.KEY_SMA);
                 // Notification frequency (new dropdown-based system)
                 captureKey("notifFrequency", PrefsHelper.KEY_NOTIF_FREQUENCY);
                 // Notification time (stored as hour/min separate values)
@@ -65,7 +69,6 @@ public class MainActivity extends BridgeActivity {
                         WorkScheduler.scheduleDailyAnalysis(this);
                     } catch (Exception ignored) {}
                 });
-                // API key is no longer needed, removed
             }
         }, 2000);
     }
@@ -102,7 +105,6 @@ public class MainActivity extends BridgeActivity {
                     "    console.log('rescheduleNotifications type:', typeof window.Android.rescheduleNotifications);" +
                     "    console.log('getLatestPrice type:', typeof window.Android.getLatestPrice);" +
                     "    console.log('getHistoricalData type:', typeof window.Android.getHistoricalData);" +
-                    "    console.log('updateApiKey type:', typeof window.Android.updateApiKey);" +
                     "  } else {" +
                     "    console.warn('Android interface still not available');" +
                     "  }" +
@@ -158,8 +160,8 @@ public class MainActivity extends BridgeActivity {
 
     /**
      * Decodes a raw result from {@code WebView.evaluateJavascript}, which is a JSON-encoded
-     * value. For a stored string like {@code ["$SPX","$NASX"]}, evaluateJavascript returns
-     * {@code "[\"$SPX\",\"$NASX\"]"}; this returns the underlying string with inner quotes
+     * value. For a stored string like {@code ["^GSPC","^IXIC"]}, evaluateJavascript returns
+     * {@code "[\"^GSPC\",\"^IXIC\"]"}; this returns the underlying string with inner quotes
      * unescaped. Returns "" for a JS null. Falls back to {@link #trimQuotes} on parse failure.
      */
     private static String decodeJsString(String jsResult) {
@@ -196,11 +198,6 @@ public class MainActivity extends BridgeActivity {
                 if (completionCount[0] >= totalOperations) {
                     // All preferences updated, now reschedule
                     Log.i(TAG, "All notification settings updated. Rescheduling notifications...");
-                    // Check if API key exists before rescheduling
-                    String apiKey = PrefsHelper.getString(this, PrefsHelper.KEY_API, "");
-                    if (apiKey == null || apiKey.isEmpty()) {
-                        Log.w(TAG, "API key not yet available, scheduling with minimum delay to allow time for setup");
-                    }
                     WorkScheduler.scheduleDailyAnalysis(this);
                     Log.i(TAG, "Notifications rescheduled successfully");
                 }
@@ -256,28 +253,15 @@ public class MainActivity extends BridgeActivity {
                 }
                 rescheduleIfComplete.run();
             });
-            // API key is no longer needed, removed
             rescheduleIfComplete.run();
         });
-    }
-
-    /**
-     * Called from JavaScript when API key is updated
-     * No longer needed - API key removed. Kept for backward compatibility.
-     * @deprecated API key is no longer used
-     */
-    @Deprecated
-    @android.webkit.JavascriptInterface
-    public void updateApiKey() {
-        Log.d(TAG, "updateApiKey() called but API key is no longer needed");
-        // No-op: API key is no longer used
     }
 
     /**
      * Called from JavaScript to get the latest real-time stock price from Yahoo Finance API.
      * Returns the price as a string, or "0" if the price cannot be retrieved.
      * 
-     * @param symbol The stock symbol (e.g., "$SPX", "$NASX", "URTH")
+     * @param symbol The Yahoo symbol (e.g., "^GSPC", "^IXIC", "URTH")
      * @return The latest price as a string, or "0" if unavailable
      */
     @android.webkit.JavascriptInterface
@@ -310,7 +294,7 @@ public class MainActivity extends BridgeActivity {
      * Fetches the latest real-time stock price from Yahoo Finance API using direct HTTP request.
      * Returns 0.0 if the price cannot be retrieved.
      * 
-     * @param symbol The stock symbol (e.g., "$SPX", "$NASX", "URTH")
+     * @param symbol The Yahoo symbol (e.g., "^GSPC", "^IXIC", "URTH")
      * @return The latest price, or 0.0 if unavailable
      */
     private double fetchLatestPrice(String symbol) {
@@ -413,33 +397,33 @@ public class MainActivity extends BridgeActivity {
     }
 
     /**
-     * Called from JavaScript to get current price and 200-day SMA from barchart.com.
-     * Returns the data as a JSON string with "currentPrice" and "sma200" keys, or empty string if unavailable.
-     * 
-     * @param symbol The stock symbol (e.g., "$SPX", "$NASX", "URTH")
+     * Called from JavaScript to get current price and the configured-period SMA from Yahoo Finance.
+     * Returns the data as a JSON string with "currentPrice" and "sma" keys, or empty string if unavailable.
+     *
+     * @param symbol The Yahoo symbol (e.g., "^GSPC", "^IXIC", "URTH")
      * @return Data as JSON string, or empty string if unavailable
      */
     @android.webkit.JavascriptInterface
     public String getHistoricalData(String symbol) {
         Log.i(TAG, "=== getHistoricalData() ENTRY POINT - called from JavaScript ===");
         Log.i(TAG, "Symbol received: " + symbol);
-        
+
         try {
             if (symbol == null || symbol.isEmpty()) {
                 Log.e(TAG, "Invalid symbol provided: " + symbol);
                 return "";
             }
-            
-            // Use the same method from SMAWorker
-            JSONObject barchartData = SMAWorker.getBarchartData(symbol);
-            if (barchartData == null || !barchartData.has("currentPrice") || !barchartData.has("sma200")) {
-                Log.w(TAG, "Failed to get data from barchart.com for symbol: " + symbol);
+
+            // Compute current price + SMA on-device from Yahoo Finance data.
+            JSONObject indexData = SMAWorker.getIndexData(this, symbol);
+            if (indexData == null || !indexData.has("currentPrice") || !indexData.has("sma")) {
+                Log.w(TAG, "Failed to get data from Yahoo Finance for symbol: " + symbol);
                 return "";
             }
-            
-            Log.i(TAG, "Got data from barchart.com for " + symbol + " - Price: " + 
-                  barchartData.getDouble("currentPrice") + ", SMA200: " + barchartData.getDouble("sma200"));
-            return barchartData.toString();
+
+            Log.i(TAG, "Got data from Yahoo Finance for " + symbol + " - Price: " +
+                  indexData.getDouble("currentPrice") + ", SMA: " + indexData.getDouble("sma"));
+            return indexData.toString();
         } catch (Exception e) {
             Log.e(TAG, "Error in getHistoricalData for symbol: " + symbol, e);
             return "";

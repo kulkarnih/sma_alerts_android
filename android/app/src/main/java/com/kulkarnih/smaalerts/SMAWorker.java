@@ -13,6 +13,7 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -36,6 +37,9 @@ public class SMAWorker extends Worker {
     public Result doWork() {
         Context ctx = getApplicationContext();
         try {
+            // Ensure any legacy Barchart tickers are migrated to Yahoo tickers before reading them.
+            PrefsHelper.migrateLegacySymbols(ctx);
+
             // Read settings shared across all tracked indices
             float buy = PrefsHelper.getFloat(ctx, PrefsHelper.KEY_BUY, 4.0f);
             float sell = PrefsHelper.getFloat(ctx, PrefsHelper.KEY_SELL, 3.0f);
@@ -52,8 +56,8 @@ public class SMAWorker extends Worker {
             List<String> notifyLines = new ArrayList<>();
 
             for (String symbol : tracked) {
-                JSONObject barchartData = getBarchartData(symbol);
-                if (barchartData == null || !barchartData.has("currentPrice") || !barchartData.has("sma200")) {
+                JSONObject indexData = getIndexData(ctx, symbol);
+                if (indexData == null || !indexData.has("currentPrice") || !indexData.has("sma")) {
                     Log.e(TAG, "Failed to fetch data for symbol: " + symbol + " — skipping");
                     continue; // per-symbol failure: skip, keep going
                 }
@@ -61,8 +65,8 @@ public class SMAWorker extends Worker {
                 double current;
                 double sma;
                 try {
-                    current = barchartData.getDouble("currentPrice");
-                    sma = barchartData.getDouble("sma200");
+                    current = indexData.getDouble("currentPrice");
+                    sma = indexData.getDouble("sma");
                 } catch (Exception e) {
                     Log.e(TAG, "Malformed data for symbol: " + symbol, e);
                     continue;
@@ -117,7 +121,7 @@ public class SMAWorker extends Worker {
                 if (!"disabled".equals(notifFrequency)) {
                     NotificationHelper.createChannels(ctx);
                     NotificationHelper.notifySignal(ctx, "SMA Alerts",
-                            "Failed to fetch data from barchart.com. Will retry later.");
+                            "Failed to fetch market data. Will retry later.");
                 }
                 return Result.retry();
             }
@@ -133,7 +137,7 @@ public class SMAWorker extends Worker {
 
     /**
      * Reads the tracked symbols from prefs. Falls back to the legacy single-index key, then to
-     * a hard default of ["$SPX"], so users upgrading from the single-index build keep working.
+     * a hard default of ["^GSPC"], so users upgrading from the single-index build keep working.
      * Made package-private for testing.
      */
     static List<String> readTrackedSymbols(Context ctx) {
@@ -160,7 +164,7 @@ public class SMAWorker extends Worker {
             }
         }
         if (symbols.isEmpty()) {
-            symbols.add("$SPX");
+            symbols.add("^GSPC");
         }
         return symbols;
     }
@@ -183,8 +187,8 @@ public class SMAWorker extends Worker {
 
     /** Human-friendly display name for a symbol; falls back to the symbol itself. */
     static String displayName(String symbol) {
-        if ("$SPX".equals(symbol)) return "S&P 500";
-        if ("$NASX".equals(symbol)) return "NASDAQ Composite";
+        if ("^GSPC".equals(symbol)) return "S&P 500";
+        if ("^IXIC".equals(symbol)) return "NASDAQ Composite";
         if ("URTH".equals(symbol)) return "MSCI World";
         return symbol;
     }
@@ -204,7 +208,9 @@ public class SMAWorker extends Worker {
     }
 
 
-    private static double computeSMA(JSONObject series, List<String> dates, int period) throws Exception {
+    // Package-private for testing. Averages the first `period` entries of `dates`, so callers must
+    // pass dates sorted newest-first to get the most-recent-N-day SMA (see getIndexData).
+    static double computeSMA(JSONObject series, List<String> dates, int period) throws Exception {
         if (dates.size() < period) throw new IllegalArgumentException("Not enough data for SMA");
         double sum = 0.0;
         for (int i = 0; i < period; i++) {
@@ -230,235 +236,81 @@ public class SMAWorker extends Worker {
     }
 
     /**
-     * Fetches current price and 200-day SMA from barchart.com.
-     * Returns a JSONObject with "currentPrice" and "sma200" keys.
-     * Returns null if data cannot be retrieved.
+     * Fetches the current price and configured-period SMA for a symbol from Yahoo Finance.
+     * The SMA period is read from prefs (KEY_SMA, default 200) and computed on-device from the
+     * daily close series. Returns a JSONObject with "currentPrice" and "sma" keys, or null if
+     * data cannot be retrieved or there aren't enough close prices for the requested period.
      * Made package-private for testing.
      */
-    static JSONObject getBarchartData(String symbol) {
-        HttpURLConnection connection = null;
-        BufferedReader reader = null;
+    static JSONObject getIndexData(Context ctx, String symbol) {
         try {
-            Log.d(TAG, "Fetching data from barchart.com for symbol: " + symbol);
-            
-            String urlString = "https://www.barchart.com/stocks/quotes/" + symbol + "/technical-analysis";
-            URL url = new URL(urlString);
-            connection = (HttpURLConnection) url.openConnection();
-            
-            // Set User-Agent to mimic a browser request (required by barchart.com)
-            connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36");
-            connection.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7");
-            connection.setRequestMethod("GET");
-            connection.setConnectTimeout(15000);
-            connection.setReadTimeout(15000);
-            
-            int responseCode = connection.getResponseCode();
-            Log.d(TAG, "Barchart.com API response code: " + responseCode);
-            
-            if (responseCode != HttpURLConnection.HTTP_OK) {
-                Log.e(TAG, "Barchart.com API returned error code: " + responseCode);
+            int period = PrefsHelper.getInt(ctx, PrefsHelper.KEY_SMA, 200);
+            if (period < 1) period = 1;
+
+            JSONObject series = getHistoricalData(symbol, period);
+            if (series == null || series.length() == 0) {
+                Log.e(TAG, "No historical data for symbol: " + symbol);
                 return null;
             }
-            
-            // Read response
-            reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-            StringBuilder response = new StringBuilder();
-            String line;
-            while ((line = reader.readLine()) != null) {
-                response.append(line);
+
+            // Yahoo returns closes chronologically; sort dates DESCENDING so the newest close is
+            // first. computeSMA() averages the first `period` entries (i.e. the most recent ones),
+            // and the newest close is the current price.
+            List<String> dates = new ArrayList<>();
+            Iterator<String> it = series.keys();
+            while (it.hasNext()) {
+                dates.add(it.next());
             }
-            
-            String html = response.toString();
-            
-            // Extract current price from JSON data in script tag
-            double currentPrice = 0.0;
-            try {
-                // Try multiple patterns to find the price
-                // Pattern 1: "lastPrice":681.53 or "lastPrice":"681.53" or "lastPrice":"23,413.67"
-                int lastPriceStart = html.indexOf("\"lastPrice\":");
-                if (lastPriceStart > 0) {
-                    int valueStart = lastPriceStart + 12; // length of "lastPrice":
-                    // Skip whitespace
-                    while (valueStart < html.length() && html.charAt(valueStart) == ' ') {
-                        valueStart++;
-                    }
-                    
-                    // Check if value is quoted
-                    boolean isQuoted = valueStart < html.length() && (html.charAt(valueStart) == '"' || html.charAt(valueStart) == '\'');
-                    char quoteChar = isQuoted ? html.charAt(valueStart) : 0;
-                    
-                    // Skip opening quote if present
-                    if (isQuoted) {
-                        valueStart++;
-                    }
-                    
-                    // Find the end - look for closing quote if quoted, or comma/} if not quoted
-                    int valueEnd = valueStart;
-                    if (isQuoted) {
-                        // Find closing quote
-                        while (valueEnd < html.length() && html.charAt(valueEnd) != quoteChar) {
-                            valueEnd++;
-                        }
-                    } else {
-                        // Find comma, }, or newline
-                        while (valueEnd < html.length()) {
-                            char c = html.charAt(valueEnd);
-                            if (c == ',' || c == '}' || c == '\n') {
-                                break;
-                            }
-                            valueEnd++;
-                        }
-                    }
-                    
-                    if (valueEnd > valueStart) {
-                        String priceStr = html.substring(valueStart, valueEnd).trim().replace(",", "");
-                        try {
-                            currentPrice = Double.parseDouble(priceStr);
-                            Log.d(TAG, "Extracted current price (method 1): " + currentPrice + " from string: " + html.substring(valueStart, valueEnd));
-                        } catch (NumberFormatException e) {
-                            Log.w(TAG, "Failed to parse price string: " + priceStr);
-                        }
-                    }
-                }
-                
-                // Pattern 2: Look in currentSymbol object if method 1 failed
-                if (currentPrice <= 0) {
-                    int currentSymbolStart = html.indexOf("\"currentSymbol\":");
-                    if (currentSymbolStart > 0) {
-                        int lastPriceStart2 = html.indexOf("\"lastPrice\":", currentSymbolStart);
-                        if (lastPriceStart2 > 0 && lastPriceStart2 < currentSymbolStart + 5000) { // within reasonable distance
-                            int valueStart = lastPriceStart2 + 12;
-                            // Skip whitespace
-                            while (valueStart < html.length() && html.charAt(valueStart) == ' ') {
-                                valueStart++;
-                            }
-                            
-                            // Check if value is quoted
-                            boolean isQuoted = valueStart < html.length() && (html.charAt(valueStart) == '"' || html.charAt(valueStart) == '\'');
-                            char quoteChar = isQuoted ? html.charAt(valueStart) : 0;
-                            
-                            // Skip opening quote if present
-                            if (isQuoted) {
-                                valueStart++;
-                            }
-                            
-                            // Find the end - look for closing quote if quoted, or comma/} if not quoted
-                            int valueEnd = valueStart;
-                            if (isQuoted) {
-                                // Find closing quote
-                                while (valueEnd < html.length() && html.charAt(valueEnd) != quoteChar) {
-                                    valueEnd++;
-                                }
-                            } else {
-                                // Find comma, }, or newline
-                                while (valueEnd < html.length()) {
-                                    char c = html.charAt(valueEnd);
-                                    if (c == ',' || c == '}' || c == '\n') {
-                                        break;
-                                    }
-                                    valueEnd++;
-                                }
-                            }
-                            
-                            if (valueEnd > valueStart) {
-                                String priceStr = html.substring(valueStart, valueEnd).trim().replace(",", "");
-                                try {
-                                    currentPrice = Double.parseDouble(priceStr);
-                                    Log.d(TAG, "Extracted current price (method 2): " + currentPrice + " from string: " + html.substring(valueStart, valueEnd));
-                                } catch (NumberFormatException e) {
-                                    Log.w(TAG, "Failed to parse price string: " + priceStr);
-                                }
-                            }
-                        }
-                    }
-                }
-            } catch (Exception e) {
-                Log.w(TAG, "Failed to extract current price from JSON", e);
-            }
-            
-            // Extract 200-day SMA from HTML table
-            double sma200 = 0.0;
-            try {
-                // Look for the 200-Day row in the table - handle various formats
-                int rowStart = html.indexOf("<td>200-Day</td>");
-                if (rowStart < 0) {
-                    rowStart = html.indexOf("<td>200 Day</td>");
-                }
-                if (rowStart < 0) {
-                    rowStart = html.indexOf("200-Day");
-                }
-                
-                if (rowStart > 0) {
-                    // Find the next <td> tag after "200-Day" which contains the SMA value
-                    // Skip the first <td> (which contains "200-Day") and get the second one
-                    int firstTdEnd = html.indexOf("</td>", rowStart);
-                    if (firstTdEnd > 0) {
-                        int tdStart = html.indexOf("<td", firstTdEnd);
-                        if (tdStart > 0) {
-                            int valueStart = html.indexOf(">", tdStart) + 1;
-                            int valueEnd = html.indexOf("<", valueStart);
-                            if (valueEnd > valueStart) {
-                                String smaStr = html.substring(valueStart, valueEnd).trim().replace(",", "").replace("$", "");
-                                sma200 = Double.parseDouble(smaStr);
-                                Log.d(TAG, "Extracted 200-day SMA: " + sma200);
-                            }
-                        }
-                    }
-                }
-            } catch (Exception e) {
-                Log.w(TAG, "Failed to extract 200-day SMA from HTML", e);
-            }
-            
-            if (currentPrice <= 0 || sma200 <= 0) {
-                Log.e(TAG, "Failed to extract valid data - currentPrice: " + currentPrice + ", sma200: " + sma200);
+            Collections.sort(dates, Collections.reverseOrder());
+
+            if (dates.size() < period) {
+                Log.e(TAG, "Not enough close prices (" + dates.size() + " < " + period
+                        + ") for symbol: " + symbol);
                 return null;
             }
-            
+
+            double currentPrice = series.getJSONObject(dates.get(0)).getDouble("4. close");
+            double sma = computeSMA(series, dates, period);
+
+            if (currentPrice <= 0 || sma <= 0) {
+                Log.e(TAG, "Invalid data for " + symbol + " - currentPrice: " + currentPrice
+                        + ", sma: " + sma);
+                return null;
+            }
+
             JSONObject result = new JSONObject();
             result.put("currentPrice", currentPrice);
-            result.put("sma200", sma200);
-            
-            Log.i(TAG, "Successfully fetched data from barchart.com - Price: " + currentPrice + ", SMA200: " + sma200);
+            result.put("sma", sma);
+
+            Log.i(TAG, "Yahoo Finance data for " + symbol + " - Price: " + currentPrice
+                    + ", SMA(" + period + "): " + sma);
             return result;
-            
-        } catch (IOException e) {
-            Log.e(TAG, "IO error fetching data from barchart.com for symbol: " + symbol, e);
-            return null;
+
         } catch (Exception e) {
-            Log.e(TAG, "Unexpected error fetching data from barchart.com for symbol: " + symbol, e);
+            Log.e(TAG, "Error building index data for symbol: " + symbol, e);
             return null;
-        } finally {
-            if (reader != null) {
-                try {
-                    reader.close();
-                } catch (IOException e) {
-                    Log.w(TAG, "Error closing reader", e);
-                }
-            }
-            if (connection != null) {
-                connection.disconnect();
-            }
         }
     }
 
     /**
      * Fetches historical daily data from Yahoo Finance API for SMA calculation.
-     * Returns a JSONObject with time series data in format similar to Alpha Vantage:
+     * Returns a JSONObject mapping each date to its close, consumed by {@link #computeSMA}:
      * { "YYYY-MM-DD": { "4. close": price }, ... }
      * Returns null if data cannot be retrieved.
      * Made package-private for testing.
-     * @deprecated Use getBarchartData instead
      */
-    @Deprecated
     static JSONObject getHistoricalData(String symbol, int daysNeeded) {
         HttpURLConnection connection = null;
         BufferedReader reader = null;
         try {
             Log.d(TAG, "Fetching historical data from Yahoo Finance for symbol: " + symbol + ", days needed: " + daysNeeded);
-            
-            // Request 1 year of data to ensure we have at least 200 trading days
-            // 1 year = ~252 trading days, which is more than enough for 200-day SMA
-            String urlString = "https://query1.finance.yahoo.com/v8/finance/chart/" + symbol + "?interval=1d&range=1y";
+
+            // 1y ≈ 252 trading days, which comfortably exceeds the SMA period (capped at 200).
+            String range = "1y";
+            // Yahoo index tickers contain characters like '^' that must be URL-encoded.
+            String encodedSymbol = URLEncoder.encode(symbol, "UTF-8");
+            String urlString = "https://query1.finance.yahoo.com/v8/finance/chart/" + encodedSymbol
+                    + "?interval=1d&range=" + range;
             URL url = new URL(urlString);
             connection = (HttpURLConnection) url.openConnection();
             
@@ -522,7 +374,7 @@ public class SMAWorker extends Worker {
                 return null;
             }
             
-            // Convert Yahoo Finance format to Alpha Vantage-like format for compatibility
+            // Build the internal date->close map that computeSMA consumes.
             JSONObject timeSeries = new JSONObject();
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
             sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
@@ -587,11 +439,12 @@ public class SMAWorker extends Worker {
         try {
             Log.d(TAG, "Fetching latest price from Yahoo Finance for symbol: " + symbol);
             
-            // Yahoo Finance API endpoint
-            String urlString = "https://query1.finance.yahoo.com/v8/finance/chart/" + symbol + "?interval=1d&range=1d";
+            // Yahoo Finance API endpoint (symbol URL-encoded for '^' index tickers)
+            String urlString = "https://query1.finance.yahoo.com/v8/finance/chart/"
+                    + URLEncoder.encode(symbol, "UTF-8") + "?interval=1d&range=1d";
             URL url = new URL(urlString);
             connection = (HttpURLConnection) url.openConnection();
-            
+
             // Set User-Agent to mimic a browser request (required by Yahoo Finance)
             connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
             connection.setRequestProperty("Accept", "application/json");

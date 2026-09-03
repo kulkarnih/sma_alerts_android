@@ -5,6 +5,7 @@ import static org.junit.Assert.assertNotNull;
 
 import android.content.Context;
 
+import org.json.JSONObject;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -13,6 +14,7 @@ import org.robolectric.RuntimeEnvironment;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 
 @RunWith(RobolectricTestRunner.class)
@@ -24,7 +26,6 @@ public class SMAWorkerTest {
     public void setUp() {
         context = RuntimeEnvironment.getApplication();
         // Set up test preferences
-        PrefsHelper.putString(context, PrefsHelper.KEY_API, "test-api-key");
         PrefsHelper.putString(context, PrefsHelper.KEY_INDEX, "SPY");
         PrefsHelper.putInt(context, PrefsHelper.KEY_SMA, 200);
         PrefsHelper.putFloat(context, PrefsHelper.KEY_BUY, 4.0f);
@@ -62,17 +63,27 @@ public class SMAWorkerTest {
     }
 
     @Test
-    public void testComputeSMA() throws Exception {
-        // Create mock time series data
-        List<String> dates = new ArrayList<>();
-        for (int i = 0; i < 250; i++) {
-            dates.add("2024-01-" + String.format("%02d", (i % 30) + 1));
+    public void testComputeSMA_averagesMostRecentDescending() throws Exception {
+        // Chronological close series 10,20,30,40,50 for 2024-01-01..05.
+        JSONObject series = new JSONObject();
+        double[] closes = {10, 20, 30, 40, 50};
+        for (int i = 0; i < closes.length; i++) {
+            series.put(String.format("2024-01-%02d", i + 1),
+                    new JSONObject().put("4. close", closes[i]));
         }
+
+        // Mirror getIndexData: sort dates newest-first.
+        List<String> dates = new ArrayList<>();
+        Iterator<String> it = series.keys();
+        while (it.hasNext()) dates.add(it.next());
         Collections.sort(dates, Collections.reverseOrder());
 
-        // Mock JSON structure would be needed for full test
-        // This is a basic structure test
-        assertNotNull("Dates list should not be null", dates);
-        assertEquals("Should have 250 dates", 250, dates.size());
+        // Newest close is the current price.
+        assertEquals("2024-01-05", dates.get(0));
+        assertEquals(50.0, series.getJSONObject(dates.get(0)).getDouble("4. close"), 1e-9);
+        // Newest 3 closes (50,40,30) → mean 40.
+        assertEquals(40.0, SMAWorker.computeSMA(series, dates, 3), 1e-9);
+        // All 5 closes → mean 30.
+        assertEquals(30.0, SMAWorker.computeSMA(series, dates, 5), 1e-9);
     }
 }

@@ -24,7 +24,6 @@ public class IndexSwitchingTest {
         context = RuntimeEnvironment.getApplication();
         
         // Set up test preferences
-        PrefsHelper.putString(context, PrefsHelper.KEY_API, "test-api-key");
         PrefsHelper.putInt(context, PrefsHelper.KEY_SMA, 200);
         PrefsHelper.putFloat(context, PrefsHelper.KEY_BUY, 4.0f);
         PrefsHelper.putFloat(context, PrefsHelper.KEY_SELL, 3.0f);
@@ -54,19 +53,6 @@ public class IndexSwitchingTest {
         
         // Verify index is stored correctly
         assertNotNull("Index should be stored", PrefsHelper.getString(context, PrefsHelper.KEY_INDEX, ""));
-    }
-
-    @Test
-    public void testIndexSwitching_NoApiKey() {
-        // TC-INDEXCHANGE-003: No API key, change index
-        PrefsHelper.putString(context, PrefsHelper.KEY_API, "");
-        
-        String apiKey = PrefsHelper.getString(context, PrefsHelper.KEY_API, "");
-        assertEquals("API key should be empty", "", apiKey);
-        
-        // When API key is missing, signal generation should fail gracefully
-        // This is tested in error handling tests
-        assertNotNull("Context should be available", context);
     }
 
     @Test

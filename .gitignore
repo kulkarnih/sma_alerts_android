@@ -204,3 +204,6 @@ android/app/build/reports/tests/
 # ============================================
 docs/_build/
 site/
+
+# Claude files
+.claude

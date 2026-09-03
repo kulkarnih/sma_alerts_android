@@ -41,38 +41,38 @@ public class MultiIndexWorkerTest {
 
     @Test
     public void testReadTrackedSymbols_fromJsonArray() {
-        PrefsHelper.putString(context, PrefsHelper.KEY_TRACKED_INDEXES, "[\"$SPX\",\"$NASX\",\"URTH\"]");
+        PrefsHelper.putString(context, PrefsHelper.KEY_TRACKED_INDEXES, "[\"^GSPC\",\"^IXIC\",\"URTH\"]");
         List<String> symbols = SMAWorker.readTrackedSymbols(context);
         assertEquals(3, symbols.size());
-        assertEquals("$SPX", symbols.get(0));
-        assertEquals("$NASX", symbols.get(1));
+        assertEquals("^GSPC", symbols.get(0));
+        assertEquals("^IXIC", symbols.get(1));
         assertEquals("URTH", symbols.get(2));
     }
 
     @Test
     public void testReadTrackedSymbols_dedupes() {
-        PrefsHelper.putString(context, PrefsHelper.KEY_TRACKED_INDEXES, "[\"$SPX\",\"$SPX\",\"$NASX\"]");
+        PrefsHelper.putString(context, PrefsHelper.KEY_TRACKED_INDEXES, "[\"^GSPC\",\"^GSPC\",\"^IXIC\"]");
         List<String> symbols = SMAWorker.readTrackedSymbols(context);
         assertEquals(2, symbols.size());
-        assertEquals("$SPX", symbols.get(0));
-        assertEquals("$NASX", symbols.get(1));
+        assertEquals("^GSPC", symbols.get(0));
+        assertEquals("^IXIC", symbols.get(1));
     }
 
     @Test
     public void testReadTrackedSymbols_legacyFallback() {
         // No trackedIndexes present; fall back to the old single-index key.
-        PrefsHelper.putString(context, PrefsHelper.KEY_INDEX, "$NASX");
+        PrefsHelper.putString(context, PrefsHelper.KEY_INDEX, "^IXIC");
         List<String> symbols = SMAWorker.readTrackedSymbols(context);
         assertEquals(1, symbols.size());
-        assertEquals("$NASX", symbols.get(0));
+        assertEquals("^IXIC", symbols.get(0));
     }
 
     @Test
     public void testReadTrackedSymbols_defaultsToSpx() {
-        // Nothing set at all -> default to $SPX.
+        // Nothing set at all -> default to ^GSPC.
         List<String> symbols = SMAWorker.readTrackedSymbols(context);
         assertEquals(1, symbols.size());
-        assertEquals("$SPX", symbols.get(0));
+        assertEquals("^GSPC", symbols.get(0));
     }
 
     @Test
@@ -88,17 +88,17 @@ public class MultiIndexWorkerTest {
 
     @Test
     public void testReadNotifEnabled_parsesMap() {
-        PrefsHelper.putString(context, PrefsHelper.KEY_NOTIF_ENABLED, "{\"$SPX\":true,\"$NASX\":false}");
+        PrefsHelper.putString(context, PrefsHelper.KEY_NOTIF_ENABLED, "{\"^GSPC\":true,\"^IXIC\":false}");
         JSONObject map = SMAWorker.readNotifEnabled(context);
-        assertTrue(map.optBoolean("$SPX", false));
-        assertFalse(map.optBoolean("$NASX", true));
+        assertTrue(map.optBoolean("^GSPC", false));
+        assertFalse(map.optBoolean("^IXIC", true));
     }
 
     @Test
     public void testReadNotifEnabled_missingDefaultsEnabled() {
         // A symbol absent from the map defaults to enabled (opt-default true at the call site).
         JSONObject map = SMAWorker.readNotifEnabled(context);
-        assertTrue(map.optBoolean("$SPX", true));
+        assertTrue(map.optBoolean("^GSPC", true));
     }
 
     @Test
@@ -112,11 +112,11 @@ public class MultiIndexWorkerTest {
 
     @Test
     public void testPerIndexChangeDetection_isolatedPerSymbol() {
-        PrefsHelper.putString(context, PrefsHelper.KEY_LAST_SIGNAL_PREFIX + "$SPX", "BUY");
-        PrefsHelper.putString(context, PrefsHelper.KEY_LAST_SIGNAL_PREFIX + "$NASX", "HOLD");
+        PrefsHelper.putString(context, PrefsHelper.KEY_LAST_SIGNAL_PREFIX + "^GSPC", "BUY");
+        PrefsHelper.putString(context, PrefsHelper.KEY_LAST_SIGNAL_PREFIX + "^IXIC", "HOLD");
 
-        assertEquals("BUY", PrefsHelper.getString(context, PrefsHelper.KEY_LAST_SIGNAL_PREFIX + "$SPX", ""));
-        assertEquals("HOLD", PrefsHelper.getString(context, PrefsHelper.KEY_LAST_SIGNAL_PREFIX + "$NASX", ""));
+        assertEquals("BUY", PrefsHelper.getString(context, PrefsHelper.KEY_LAST_SIGNAL_PREFIX + "^GSPC", ""));
+        assertEquals("HOLD", PrefsHelper.getString(context, PrefsHelper.KEY_LAST_SIGNAL_PREFIX + "^IXIC", ""));
         // A symbol that has never been seen has an empty last signal.
         assertEquals("", PrefsHelper.getString(context, PrefsHelper.KEY_LAST_SIGNAL_PREFIX + "URTH", ""));
     }
@@ -125,8 +125,8 @@ public class MultiIndexWorkerTest {
 
     @Test
     public void testDisplayName() {
-        assertEquals("S&P 500", SMAWorker.displayName("$SPX"));
-        assertEquals("NASDAQ Composite", SMAWorker.displayName("$NASX"));
+        assertEquals("S&P 500", SMAWorker.displayName("^GSPC"));
+        assertEquals("NASDAQ Composite", SMAWorker.displayName("^IXIC"));
         assertEquals("MSCI World", SMAWorker.displayName("URTH"));
         // Unknown symbol falls back to itself.
         assertEquals("QQQM", SMAWorker.displayName("QQQM"));

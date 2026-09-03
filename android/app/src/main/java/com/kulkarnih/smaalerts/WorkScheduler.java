@@ -56,9 +56,7 @@ public final class WorkScheduler {
 
             Duration delay = calculateDelayUntilNextRun(context);
             long delayMs = delay.toMillis();
-            
-            // API key is no longer needed, removed check
-            
+
             // Ensure delay is within reasonable bounds
             if (delayMs < MIN_DELAY_MS) {
                 Log.w(TAG, "Delay too short, using minimum delay");

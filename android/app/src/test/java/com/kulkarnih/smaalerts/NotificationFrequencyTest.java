@@ -31,7 +31,6 @@ public class NotificationFrequencyTest {
         PrefsHelper.putString(context, PrefsHelper.KEY_LAST_DATE, "");
         
         // Set up test preferences
-        PrefsHelper.putString(context, PrefsHelper.KEY_API, "test-api-key");
         PrefsHelper.putString(context, PrefsHelper.KEY_INDEX, "SPY");
         PrefsHelper.putInt(context, PrefsHelper.KEY_SMA, 200);
         PrefsHelper.putFloat(context, PrefsHelper.KEY_BUY, 4.0f);
@@ -68,16 +67,15 @@ public class NotificationFrequencyTest {
     }
 
     @Test
-    public void testNotificationDisabled_ApiKeyMissing() {
-        // TC-NOTIF-DISABLED-003: API key missing, frequency = disabled
+    public void testNotificationDisabled_AlwaysSuppressed() {
+        // TC-NOTIF-DISABLED-003: frequency = disabled suppresses notifications unconditionally
         PrefsHelper.putString(context, PrefsHelper.KEY_NOTIF_FREQUENCY, "disabled");
-        PrefsHelper.putString(context, PrefsHelper.KEY_API, "");
-        
+
         String notifFrequency = PrefsHelper.getString(context, PrefsHelper.KEY_NOTIF_FREQUENCY, "on_change");
-        
-        // When disabled, even API key errors should not trigger notification
+
+        // When disabled, even a fetch/data error path should not trigger a notification.
         assertEquals("disabled", notifFrequency);
-        assertFalse("Notifications should be disabled even for API errors", 
+        assertFalse("Notifications should be disabled unconditionally",
             shouldNotifyForSignal("BUY", "HOLD", notifFrequency));
     }
 

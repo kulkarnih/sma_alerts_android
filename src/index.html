@@ -518,6 +518,8 @@
 
     .sheet-row-label { font-size: 15px; font-weight: 500; color: var(--text); }
     .sheet-row-hint  { font-size: 12px; font-weight: 400; color: var(--text-3); margin-top: 1px; }
+    .sheet-row-error { font-size: 12px; font-weight: 500; color: var(--sell); margin-top: 2px; }
+    .sheet-input.invalid { border-color: var(--sell); }
 
     /* Inputs */
     .sheet-input {
@@ -769,8 +771,10 @@
           <div>
             <div class="sheet-row-label">SMA period</div>
             <div class="sheet-row-hint">days used for the average (1–200)</div>
+            <div class="sheet-row-error" id="smaError" hidden>Maximum is 200 days</div>
           </div>
-          <input class="sheet-input" type="number" id="smaPeriod" value="200" step="1" min="1" max="200">
+          <input class="sheet-input" type="number" id="smaPeriod" value="200" step="1" min="1" max="200"
+                 oninput="validateSma()" onblur="clampSma()">
         </div>
       </div>
     </div>
@@ -856,13 +860,14 @@
   // Catalog of supported indices. Extensible — add an index by adding one entry
   // here (and a matching MOCK entry below for desktop-browser preview).
   const CATALOG = [
-    { id: '^GSPC', name: 'S&P 500',           symbol: '^GSPC' },
-    { id: '^IXIC', name: 'NASDAQ Composite',  symbol: '^IXIC' },
-    { id: 'URTH',  name: 'MSCI World',        symbol: 'URTH'  },
+    { id: '^GSPC', name: 'S&P 500',      symbol: '^GSPC' },
+    { id: '^NDX',  name: 'NASDAQ 100',   symbol: '^NDX'  },
+    { id: 'URTH',  name: 'MSCI World',   symbol: 'URTH'  },
   ];
 
-  // Migration map for installs that persisted the old Barchart tickers in localStorage.
-  const SYMBOL_MIGRATIONS = { '$SPX': '^GSPC', '$NASX': '^IXIC' };
+  // Migration map for installs that persisted old tickers in localStorage:
+  // Barchart → Yahoo ($SPX/$NASX), and NASDAQ Composite (^IXIC) → NASDAQ 100 (^NDX).
+  const SYMBOL_MIGRATIONS = { '$SPX': '^GSPC', '$NASX': '^NDX', '^IXIC': '^NDX' };
   const mapSymbol = s => SYMBOL_MIGRATIONS[s] || s;
 
   // Configured SMA period (days). Defaults to 200 when unset/invalid.
@@ -876,12 +881,28 @@
     if (sub) sub.textContent = `${smaPeriodValue()}-day moving average`;
   }
 
+  // Live-validate the SMA period input: flag values above the 200-day cap.
+  function validateSma() {
+    const input = document.getElementById('smaPeriod');
+    const err   = document.getElementById('smaError');
+    const v = parseInt(input.value, 10);
+    const tooLarge = Number.isFinite(v) && v > 200;
+    input.classList.toggle('invalid', tooLarge);
+    if (err) err.hidden = !tooLarge;
+  }
+  // Snap the input back into [1, 200] (mirrors the clamp in saveSettings) and clear the error.
+  function clampSma() {
+    const input = document.getElementById('smaPeriod');
+    input.value = String(Math.min(200, Math.max(1, parseInt(input.value, 10) || 200)));
+    validateSma();
+  }
+
   // Desktop-browser preview data only. On device, window.Android is present and
   // this object is bypassed entirely (see fetchIndexData).
   const MOCK = {
-    '^GSPC': { currentPrice: 5320.45,  sma: 4987.12  },
-    '^IXIC': { currentPrice: 19250.00, sma: 19100.00 },
-    'URTH':  { currentPrice: 113.20,   sma: 120.50   },
+    '^GSPC': { currentPrice: 5320.45,   sma: 4987.12   },
+    '^NDX':  { currentPrice: 29482.32,  sma: 27005.77  },
+    'URTH':  { currentPrice: 113.20,    sma: 120.50    },
   };
 
   let tracked      = CATALOG.map(c => c.id); // default: track all supported indices
@@ -1038,6 +1059,10 @@
     localStorage.setItem('notifMinute', String(parseInt(m  || '30', 10)));
     if (window.Android && typeof window.Android.rescheduleNotifications === 'function') {
       try { window.Android.rescheduleNotifications(); } catch (_) {}
+    }
+    // Push the saved settings into native SharedPreferences so the background worker stays in sync.
+    if (window.Android && typeof window.Android.persistSettings === 'function') {
+      try { window.Android.persistSettings(); } catch (_) {}
     }
     refreshSmaLabels();
   }
@@ -1460,7 +1485,8 @@
       throw new Error('No mock data');
     }
     if (window.Android && typeof window.Android.getHistoricalData === 'function') {
-      const raw = window.Android.getHistoricalData(symbol);
+      // Pass the configured period so a settings change takes effect on the next refresh.
+      const raw = window.Android.getHistoricalData(symbol, smaPeriodValue());
       if (raw?.trim()) {
         const d = JSON.parse(raw);
         if (d.currentPrice && d.sma) return d;

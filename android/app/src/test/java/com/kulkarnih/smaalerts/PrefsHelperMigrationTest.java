@@ -16,8 +16,8 @@ import org.robolectric.RuntimeEnvironment;
 
 /**
  * Tests for {@link PrefsHelper#migrateLegacySymbols(Context)}: legacy Barchart tickers
- * ($SPX/$NASX) stored across prefs are rewritten to Yahoo tickers (^GSPC/^IXIC), and the
- * migration is idempotent.
+ * ($SPX/$NASX) and the retired NASDAQ Composite (^IXIC) stored across prefs are rewritten
+ * to current Yahoo tickers (^GSPC/^NDX), and the migration is idempotent.
  */
 @RunWith(RobolectricTestRunner.class)
 public class PrefsHelperMigrationTest {
@@ -46,15 +46,15 @@ public class PrefsHelperMigrationTest {
         JSONArray tracked = new JSONArray(
                 PrefsHelper.getString(context, PrefsHelper.KEY_TRACKED_INDEXES, "[]"));
         assertEquals("^GSPC", tracked.getString(0));
-        assertEquals("^IXIC", tracked.getString(1));
+        assertEquals("^NDX", tracked.getString(1));
         assertEquals("URTH", tracked.getString(2));
 
-        assertEquals("^IXIC", PrefsHelper.getString(context, PrefsHelper.KEY_INDEX, ""));
+        assertEquals("^NDX", PrefsHelper.getString(context, PrefsHelper.KEY_INDEX, ""));
 
         JSONObject notif = new JSONObject(
                 PrefsHelper.getString(context, PrefsHelper.KEY_NOTIF_ENABLED, "{}"));
         assertTrue(notif.getBoolean("^GSPC"));
-        assertFalse(notif.getBoolean("^IXIC"));
+        assertFalse(notif.getBoolean("^NDX"));
 
         // Per-symbol history moves to the new key and the old key is gone.
         assertEquals("BUY", PrefsHelper.getString(context, PrefsHelper.KEY_LAST_SIGNAL_PREFIX + "^GSPC", ""));
@@ -79,8 +79,31 @@ public class PrefsHelperMigrationTest {
     @Test
     public void testMapSymbol() {
         assertEquals("^GSPC", PrefsHelper.mapSymbol("$SPX"));
-        assertEquals("^IXIC", PrefsHelper.mapSymbol("$NASX"));
+        assertEquals("^NDX", PrefsHelper.mapSymbol("$NASX"));   // legacy Barchart -> NASDAQ 100
+        assertEquals("^NDX", PrefsHelper.mapSymbol("^IXIC"));   // NASDAQ Composite -> NASDAQ 100
         assertEquals("URTH", PrefsHelper.mapSymbol("URTH"));   // unchanged
         assertEquals("^GSPC", PrefsHelper.mapSymbol("^GSPC")); // already migrated
+        assertEquals("^NDX", PrefsHelper.mapSymbol("^NDX"));   // already migrated
+    }
+
+    @Test
+    public void testMigratesCompositeToNasdaq100() throws Exception {
+        // An install already on the Yahoo tickers still holds the retired ^IXIC.
+        PrefsHelper.putString(context, PrefsHelper.KEY_TRACKED_INDEXES, "[\"^GSPC\",\"^IXIC\",\"URTH\"]");
+        PrefsHelper.putString(context, PrefsHelper.KEY_INDEX, "^IXIC");
+        PrefsHelper.putString(context, PrefsHelper.KEY_LAST_SIGNAL_PREFIX + "^IXIC", "HOLD");
+
+        PrefsHelper.migrateLegacySymbols(context);
+
+        JSONArray tracked = new JSONArray(
+                PrefsHelper.getString(context, PrefsHelper.KEY_TRACKED_INDEXES, "[]"));
+        assertEquals("^GSPC", tracked.getString(0));
+        assertEquals("^NDX", tracked.getString(1));
+        assertEquals("URTH", tracked.getString(2));
+
+        assertEquals("^NDX", PrefsHelper.getString(context, PrefsHelper.KEY_INDEX, ""));
+        // Per-symbol history moves to ^NDX and the ^IXIC key is gone.
+        assertEquals("HOLD", PrefsHelper.getString(context, PrefsHelper.KEY_LAST_SIGNAL_PREFIX + "^NDX", ""));
+        assertEquals("", PrefsHelper.getString(context, PrefsHelper.KEY_LAST_SIGNAL_PREFIX + "^IXIC", ""));
     }
 }

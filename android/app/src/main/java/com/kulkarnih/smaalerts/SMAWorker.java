@@ -188,7 +188,7 @@ public class SMAWorker extends Worker {
     /** Human-friendly display name for a symbol; falls back to the symbol itself. */
     static String displayName(String symbol) {
         if ("^GSPC".equals(symbol)) return "S&P 500";
-        if ("^IXIC".equals(symbol)) return "NASDAQ Composite";
+        if ("^NDX".equals(symbol)) return "NASDAQ 100";
         if ("URTH".equals(symbol)) return "MSCI World";
         return symbol;
     }
@@ -243,9 +243,19 @@ public class SMAWorker extends Worker {
      * Made package-private for testing.
      */
     static JSONObject getIndexData(Context ctx, String symbol) {
+        // Background-worker path: read the configured period from prefs.
+        return getIndexData(ctx, symbol, PrefsHelper.getInt(ctx, PrefsHelper.KEY_SMA, 200));
+    }
+
+    /**
+     * Computes current price + SMA for {@code symbol} using an explicitly supplied {@code period}.
+     * The live UI passes its period directly (via the JS bridge) so a settings change takes effect
+     * on the next refresh without depending on prefs being synced first. Period is clamped to [1, 200].
+     */
+    static JSONObject getIndexData(Context ctx, String symbol, int period) {
         try {
-            int period = PrefsHelper.getInt(ctx, PrefsHelper.KEY_SMA, 200);
             if (period < 1) period = 1;
+            if (period > 200) period = 200;
 
             JSONObject series = getHistoricalData(symbol, period);
             if (series == null || series.length() == 0) {

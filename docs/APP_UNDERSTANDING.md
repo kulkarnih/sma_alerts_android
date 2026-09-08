@@ -83,7 +83,7 @@ worker (which runs with no WebView) can see them.
 
 | localStorage key | Meaning |
 |------------------|---------|
-| `trackedIndexes` | JSON array of tracked Yahoo tickers, e.g. `["^GSPC","^IXIC"]`. |
+| `trackedIndexes` | JSON array of tracked Yahoo tickers, e.g. `["^GSPC","^NDX"]`. |
 | `notifEnabled`   | JSON object mapping symbol → bool (per-index notification bell). |
 | `smaPeriod`      | SMA period in days (1–200, default 200). |
 | `selectedIndex`  | Legacy single-index key (still read as a fallback). |
@@ -102,8 +102,9 @@ worker (which runs with no WebView) can see them.
 
 ### Symbol migration
 
-The app switched from Barchart tickers (`$SPX`/`$NASX`) to Yahoo tickers (`^GSPC`/`^IXIC`;
-`URTH` unchanged). `PrefsHelper.migrateLegacySymbols(ctx)` (idempotent, guarded by a one-time
+The app switched from Barchart tickers (`$SPX`/`$NASX`) to Yahoo tickers (`^GSPC`/`^NDX`;
+`URTH` unchanged), and later swapped the NASDAQ index from Composite (`^IXIC`) to NASDAQ 100
+(`^NDX`). `PrefsHelper.migrateLegacySymbols(ctx)` (idempotent, guarded by a versioned one-time
 flag) rewrites the tracked list, single-index key, notif-enabled map, and per-symbol history
 keys on upgrade; `src/index.html` performs the equivalent migration for its localStorage.
 
@@ -170,7 +171,7 @@ JS: `determineSignal(price, sma, buyT, sellT)` in `src/index.html` (computes pct
 ## 9. Current UI (`src/index.html`) — multi-index watchlist
 
 One page: a card per tracked index (add/remove from a catalog of S&P 500 `^GSPC`,
-NASDAQ Composite `^IXIC`, MSCI World `URTH`), each with a per-index notification bell, plus a
+NASDAQ 100 `^NDX`, MSCI World `URTH`), each with a per-index notification bell, plus a
 settings sheet with buy/sell threshold inputs, the SMA-period input, notification-frequency
 select, and notification-time input. Reusable JS: `fetchIndexData(symbol)` (calls
 `window.Android.getHistoricalData`; mock branch for browser preview), `determineSignal(...)`,
@@ -189,7 +190,7 @@ cd android && ./gradlew test                 # all unit tests
 
 Notable test files: `TradingSignalAccuracyTest` (signal thresholds — CRITICAL),
 `MultiIndexWorkerTest` (tracked-symbol resolution, per-index notif rules, consolidated message),
-`PrefsHelperMigrationTest` (legacy `$SPX/$NASX` → `^GSPC/^IXIC` migration), `SMAWorkerTest`
+`PrefsHelperMigrationTest` (legacy `$SPX/$NASX` and `^IXIC` → `^GSPC/^NDX` migration), `SMAWorkerTest`
 (includes the newest-first `computeSMA` test), `NotificationFrequencyTest`, `IndexSwitchingTest`,
 `PrefsHelperTest`, `NotificationHelperTest`, `WorkSchedulerTest`, `SignalNotificationTest`,
 `IntegrationTest`, `YahooFinanceAPITest` (live-network smoke test), `NetworkHelperTest`.

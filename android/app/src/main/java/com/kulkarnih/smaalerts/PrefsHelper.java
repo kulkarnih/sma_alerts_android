@@ -11,7 +11,7 @@ import java.util.Iterator;
 public final class PrefsHelper {
     private static final String PREFS = "sma_alerts_prefs";
 
-    public static final String KEY_INDEX = "selectedIndex"; // e.g. ^GSPC, ^IXIC, URTH
+    public static final String KEY_INDEX = "selectedIndex"; // e.g. ^GSPC, ^NDX, URTH
     public static final String KEY_BUY = "buyThreshold"; // float percent
     public static final String KEY_SELL = "sellThreshold"; // float percent
     public static final String KEY_SMA = "smaPeriod"; // int
@@ -20,7 +20,7 @@ public final class PrefsHelper {
     public static final String KEY_LAST_DATE = "lastDate"; // yyyy-MM-dd
 
     // Multi-index watchlist keys (new UX)
-    public static final String KEY_TRACKED_INDEXES = "trackedIndexes"; // JSON array string, e.g. ["^GSPC","^IXIC"]
+    public static final String KEY_TRACKED_INDEXES = "trackedIndexes"; // JSON array string, e.g. ["^GSPC","^NDX"]
     public static final String KEY_NOTIF_ENABLED = "notifEnabled"; // JSON object string, sym->bool
     public static final String KEY_LAST_SIGNAL_PREFIX = "lastSignal_"; // per-symbol, e.g. lastSignal_^GSPC
     public static final String KEY_LAST_PERCENT_PREFIX = "lastPercent_"; // per-symbol
@@ -70,16 +70,20 @@ public final class PrefsHelper {
     }
 
     // ── Legacy symbol migration ────────────────────────────────────────────────
-    // The app switched from Barchart tickers ($SPX/$NASX) to Yahoo tickers (^GSPC/^IXIC).
+    // The app switched from Barchart tickers ($SPX/$NASX) to Yahoo tickers (^GSPC/^NDX),
+    // and later swapped the NASDAQ index from Composite (^IXIC) to NASDAQ 100 (^NDX).
     // Existing installs have the old tickers persisted across several keys; migrate them once.
-    private static final String KEY_MIGRATED_SYMBOLS = "migratedSymbols_v1";
+    // NOTE: bumping the version key re-runs the (idempotent) migration for installs that
+    // already completed v1, so the ^IXIC → ^NDX rewrite reaches them too.
+    private static final String KEY_MIGRATED_SYMBOLS = "migratedSymbols_v2";
     private static final String[][] SYMBOL_MIGRATIONS = {
             {"$SPX", "^GSPC"},
-            {"$NASX", "^IXIC"},
+            {"$NASX", "^NDX"},
+            {"^IXIC", "^NDX"},
             // URTH is unchanged.
     };
 
-    /** Maps a legacy Barchart ticker to its Yahoo equivalent; returns the input unchanged otherwise. */
+    /** Maps a legacy ticker to its current Yahoo equivalent; returns the input unchanged otherwise. */
     static String mapSymbol(String symbol) {
         if (symbol == null) return null;
         for (String[] pair : SYMBOL_MIGRATIONS) {
@@ -89,7 +93,7 @@ public final class PrefsHelper {
     }
 
     /**
-     * One-time, idempotent migration of stored preferences from Barchart to Yahoo symbols.
+     * One-time (per version), idempotent migration of stored preferences to current symbols.
      * Rewrites the selected index, the tracked-indexes array, the notif-enabled map keys, and the
      * per-symbol last-signal/percent/date keys so change-detection history (and thus quiet upgrades)
      * is preserved. Safe to call from both the UI and the background worker.

@@ -29,7 +29,7 @@ public class MainActivity extends BridgeActivity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Migrate any legacy Barchart tickers ($SPX/$NASX) in prefs to Yahoo tickers (^GSPC/^IXIC).
+        // Migrate any legacy Barchart tickers ($SPX/$NASX) in prefs to Yahoo tickers (^GSPC/^NDX).
         PrefsHelper.migrateLegacySymbols(this);
 
         // Create notification channel and schedule first run
@@ -46,31 +46,50 @@ public class MainActivity extends BridgeActivity {
         getWindow().getDecorView().postDelayed(() -> {
             // Add JavaScript interface after a delay to ensure WebView is ready
             addJavaScriptInterface();
-            
-            if (getBridge() != null && getBridge().getWebView() != null) {
-                captureKey("buyThreshold", PrefsHelper.KEY_BUY);
-                captureKey("sellThreshold", PrefsHelper.KEY_SELL);
-                captureKey("selectedIndex", PrefsHelper.KEY_INDEX);
-                // Multi-index watchlist state (stored as raw JSON strings)
-                captureKey("trackedIndexes", PrefsHelper.KEY_TRACKED_INDEXES);
-                captureKey("notifEnabled", PrefsHelper.KEY_NOTIF_ENABLED);
-                // SMA period (configurable 1–200; the background worker computes the SMA on-device)
-                captureKey("smaPeriod", PrefsHelper.KEY_SMA);
-                // Notification frequency (new dropdown-based system)
-                captureKey("notifFrequency", PrefsHelper.KEY_NOTIF_FREQUENCY);
-                // Notification time (stored as hour/min separate values)
-                evalJS("localStorage.getItem('notifHour')", val -> {
-                    try { PrefsHelper.putInt(this, PrefsHelper.KEY_NOTIF_HOUR, Integer.parseInt(trimQuotes(val))); } catch (Exception ignored) {}
-                });
-                evalJS("localStorage.getItem('notifMinute')", val -> {
-                    try { 
-                        PrefsHelper.putInt(this, PrefsHelper.KEY_NOTIF_MIN, Integer.parseInt(trimQuotes(val)));
-                        // Reschedule after reading notification time
-                        WorkScheduler.scheduleDailyAnalysis(this);
-                    } catch (Exception ignored) {}
-                });
-            }
+            captureSettingsFromWeb();
         }, 2000);
+    }
+
+    /**
+     * Copies the current settings from the web layer (localStorage) into native SharedPreferences,
+     * which the background worker reads. Runs once at startup and again whenever the web saves
+     * settings (via {@link #persistSettings()}), so a settings change reaches the worker without
+     * waiting for the next app launch. Must run on the UI thread (touches the WebView).
+     */
+    private void captureSettingsFromWeb() {
+        if (getBridge() == null || getBridge().getWebView() == null) return;
+
+        captureKey("buyThreshold", PrefsHelper.KEY_BUY);
+        captureKey("sellThreshold", PrefsHelper.KEY_SELL);
+        captureKey("selectedIndex", PrefsHelper.KEY_INDEX);
+        // Multi-index watchlist state (stored as raw JSON strings)
+        captureKey("trackedIndexes", PrefsHelper.KEY_TRACKED_INDEXES);
+        captureKey("notifEnabled", PrefsHelper.KEY_NOTIF_ENABLED);
+        // SMA period (configurable 1–200; the background worker computes the SMA on-device)
+        captureKey("smaPeriod", PrefsHelper.KEY_SMA);
+        // Notification frequency (new dropdown-based system)
+        captureKey("notifFrequency", PrefsHelper.KEY_NOTIF_FREQUENCY);
+        // Notification time (stored as hour/min separate values)
+        evalJS("localStorage.getItem('notifHour')", val -> {
+            try { PrefsHelper.putInt(this, PrefsHelper.KEY_NOTIF_HOUR, Integer.parseInt(trimQuotes(val))); } catch (Exception ignored) {}
+        });
+        evalJS("localStorage.getItem('notifMinute')", val -> {
+            try {
+                PrefsHelper.putInt(this, PrefsHelper.KEY_NOTIF_MIN, Integer.parseInt(trimQuotes(val)));
+                // Reschedule after reading notification time
+                WorkScheduler.scheduleDailyAnalysis(this);
+            } catch (Exception ignored) {}
+        });
+    }
+
+    /**
+     * Called from the web whenever settings are saved. Re-syncs localStorage → SharedPreferences so
+     * the background worker uses the latest values immediately. The live view doesn't rely on this —
+     * it passes the period straight to {@link #getHistoricalData(String, int)}.
+     */
+    @android.webkit.JavascriptInterface
+    public void persistSettings() {
+        runOnUiThread(this::captureSettingsFromWeb);
     }
 
     @Override
@@ -133,7 +152,11 @@ public class MainActivity extends BridgeActivity {
                     return;
                 }
                 if (prefKey.equals(PrefsHelper.KEY_SMA)) {
-                    try { PrefsHelper.putInt(this, PrefsHelper.KEY_SMA, Integer.parseInt(clean)); } catch (Exception ignored) {}
+                    // Clamp to [1, 200] to match the web input cap and the worker's read-time bound.
+                    try {
+                        int p = Math.min(200, Math.max(1, Integer.parseInt(clean)));
+                        PrefsHelper.putInt(this, PrefsHelper.KEY_SMA, p);
+                    } catch (Exception ignored) {}
                 } else if (prefKey.equals(PrefsHelper.KEY_BUY) || prefKey.equals(PrefsHelper.KEY_SELL)) {
                     try { PrefsHelper.putFloat(this, prefKey, Float.parseFloat(clean)); } catch (Exception ignored) {}
                 } else {
@@ -160,8 +183,8 @@ public class MainActivity extends BridgeActivity {
 
     /**
      * Decodes a raw result from {@code WebView.evaluateJavascript}, which is a JSON-encoded
-     * value. For a stored string like {@code ["^GSPC","^IXIC"]}, evaluateJavascript returns
-     * {@code "[\"^GSPC\",\"^IXIC\"]"}; this returns the underlying string with inner quotes
+     * value. For a stored string like {@code ["^GSPC","^NDX"]}, evaluateJavascript returns
+     * {@code "[\"^GSPC\",\"^NDX\"]"}; this returns the underlying string with inner quotes
      * unescaped. Returns "" for a JS null. Falls back to {@link #trimQuotes} on parse failure.
      */
     private static String decodeJsString(String jsResult) {
@@ -261,7 +284,7 @@ public class MainActivity extends BridgeActivity {
      * Called from JavaScript to get the latest real-time stock price from Yahoo Finance API.
      * Returns the price as a string, or "0" if the price cannot be retrieved.
      * 
-     * @param symbol The Yahoo symbol (e.g., "^GSPC", "^IXIC", "URTH")
+     * @param symbol The Yahoo symbol (e.g., "^GSPC", "^NDX", "URTH")
      * @return The latest price as a string, or "0" if unavailable
      */
     @android.webkit.JavascriptInterface
@@ -294,7 +317,7 @@ public class MainActivity extends BridgeActivity {
      * Fetches the latest real-time stock price from Yahoo Finance API using direct HTTP request.
      * Returns 0.0 if the price cannot be retrieved.
      * 
-     * @param symbol The Yahoo symbol (e.g., "^GSPC", "^IXIC", "URTH")
+     * @param symbol The Yahoo symbol (e.g., "^GSPC", "^NDX", "URTH")
      * @return The latest price, or 0.0 if unavailable
      */
     private double fetchLatestPrice(String symbol) {
@@ -400,7 +423,7 @@ public class MainActivity extends BridgeActivity {
      * Called from JavaScript to get current price and the configured-period SMA from Yahoo Finance.
      * Returns the data as a JSON string with "currentPrice" and "sma" keys, or empty string if unavailable.
      *
-     * @param symbol The Yahoo symbol (e.g., "^GSPC", "^IXIC", "URTH")
+     * @param symbol The Yahoo symbol (e.g., "^GSPC", "^NDX", "URTH")
      * @return Data as JSON string, or empty string if unavailable
      */
     @android.webkit.JavascriptInterface
@@ -426,6 +449,41 @@ public class MainActivity extends BridgeActivity {
             return indexData.toString();
         } catch (Exception e) {
             Log.e(TAG, "Error in getHistoricalData for symbol: " + symbol, e);
+            return "";
+        }
+    }
+
+    /**
+     * Called from JavaScript with the period supplied directly by the web UI, so a changed SMA
+     * setting takes effect on the very next refresh without waiting for prefs to sync. Returns a
+     * JSON string with "currentPrice" and "sma" keys, or empty string if unavailable.
+     *
+     * @param symbol The Yahoo symbol (e.g., "^GSPC", "^NDX", "URTH")
+     * @param period The SMA period from the web (clamped to [1, 200] downstream)
+     * @return Data as JSON string, or empty string if unavailable
+     */
+    @android.webkit.JavascriptInterface
+    public String getHistoricalData(String symbol, int period) {
+        Log.i(TAG, "=== getHistoricalData(symbol, period) ENTRY - symbol: " + symbol + ", period: " + period);
+
+        try {
+            if (symbol == null || symbol.isEmpty()) {
+                Log.e(TAG, "Invalid symbol provided: " + symbol);
+                return "";
+            }
+
+            // Compute current price + SMA on-device from Yahoo Finance data using the requested period.
+            JSONObject indexData = SMAWorker.getIndexData(this, symbol, period);
+            if (indexData == null || !indexData.has("currentPrice") || !indexData.has("sma")) {
+                Log.w(TAG, "Failed to get data from Yahoo Finance for symbol: " + symbol);
+                return "";
+            }
+
+            Log.i(TAG, "Got data for " + symbol + " (period " + period + ") - Price: " +
+                  indexData.getDouble("currentPrice") + ", SMA: " + indexData.getDouble("sma"));
+            return indexData.toString();
+        } catch (Exception e) {
+            Log.e(TAG, "Error in getHistoricalData(symbol, period) for symbol: " + symbol, e);
             return "";
         }
     }

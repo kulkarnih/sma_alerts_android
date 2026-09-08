@@ -5,8 +5,8 @@ An Android app that generates trading signals based on Simple Moving Average (SM
 ## 🚀 Features
 
 ### **Trading Strategy**
-- **Configurable SMA Period**: Set any period from 1 to 500 days (default: 200 days)
-- **Multi-Index Watchlist**: Track S&P 500 (`^GSPC`), NASDAQ Composite (`^IXIC`), and MSCI World (`URTH`)
+- **Configurable SMA Period**: Set any period from 1 to 200 days (default: 200 days)
+- **Multi-Index Watchlist**: Track S&P 500 (`^GSPC`), NASDAQ 100 (`^NDX`), and MSCI World (`URTH`)
 - **Smart Signal Generation**:
   - 🟢 **BUY**: When index is X% above SMA
   - 🔴 **SELL**: When index is Y% below SMA
@@ -57,7 +57,7 @@ cd sma_alerts
 ### **Basic Workflow**
 1. Open the app (first launch may ask for notification permissions on Android 13+)
 2. Set thresholds (Buy X%, Sell Y%) and SMA period
-3. Choose which indices to track (S&P 500, NASDAQ Composite, MSCI World)
+3. Choose which indices to track (S&P 500, NASDAQ 100, MSCI World)
 4. Enable notifications and set your preferred local notification time
 5. Tap "Generate Signal" to fetch now; background analysis runs daily and notifies on signal change
 
@@ -65,7 +65,7 @@ cd sma_alerts
 - **Buy Signal (X%)**: Percent above SMA to trigger BUY (default: 4%)
 - **Sell Signal (Y%)**: Percent below SMA to trigger SELL (default: 3%)
 - **SMA Period**: Moving average days (default: 200)
-- **Index Selection**: S&P 500 (`^GSPC`), NASDAQ Composite (`^IXIC`), MSCI World (`URTH`)
+- **Index Selection**: S&P 500 (`^GSPC`), NASDAQ 100 (`^NDX`), MSCI World (`URTH`)
 - **Notifications**: Master toggle + time in your timezone (default = 30 min before NYSE close)
 
 ## 🔔 Notifications & Scheduling
@@ -86,13 +86,13 @@ cd sma_alerts
 ### **SMA Calculation**
 - **Method**: Simple Moving Average calculated locally
 - **Data**: Uses closing prices from historical daily data
-- **Period**: Configurable from 1 to 500 days
+- **Period**: Configurable from 1 to 200 days
 - **Accuracy**: More reliable than API-provided SMA
 
 ### **API Integration**
 - **Provider**: Yahoo Finance (public JSON chart endpoint, no key required)
 - **Endpoint**: `/v8/finance/chart/{symbol}?interval=1d&range={1y|5y}` (`^` URL-encoded as `%5E`)
-- **Symbols**: `^GSPC` (S&P 500), `^IXIC` (NASDAQ Composite), `URTH` (MSCI World)
+- **Symbols**: `^GSPC` (S&P 500), `^NDX` (NASDAQ 100), `URTH` (MSCI World)
 
 ## 🧭 Permissions
 

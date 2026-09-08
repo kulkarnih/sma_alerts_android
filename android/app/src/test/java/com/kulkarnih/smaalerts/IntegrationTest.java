@@ -46,13 +46,13 @@ public class IntegrationTest {
     @Test
     public void testPrefsHelperIntegration() {
         // Test complete settings flow
-        PrefsHelper.putString(context, PrefsHelper.KEY_INDEX, "^IXIC");
+        PrefsHelper.putString(context, PrefsHelper.KEY_INDEX, "^NDX");
         PrefsHelper.putFloat(context, PrefsHelper.KEY_BUY, 5.0f);
 
         String index = PrefsHelper.getString(context, PrefsHelper.KEY_INDEX, "");
         float buyThreshold = PrefsHelper.getFloat(context, PrefsHelper.KEY_BUY, 0f);
 
-        assertEquals("^IXIC", index);
+        assertEquals("^NDX", index);
         assertEquals(5.0f, buyThreshold, 0.001f);
     }
 

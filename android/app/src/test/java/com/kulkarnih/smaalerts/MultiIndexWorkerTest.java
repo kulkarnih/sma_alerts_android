@@ -41,30 +41,30 @@ public class MultiIndexWorkerTest {
 
     @Test
     public void testReadTrackedSymbols_fromJsonArray() {
-        PrefsHelper.putString(context, PrefsHelper.KEY_TRACKED_INDEXES, "[\"^GSPC\",\"^IXIC\",\"URTH\"]");
+        PrefsHelper.putString(context, PrefsHelper.KEY_TRACKED_INDEXES, "[\"^GSPC\",\"^NDX\",\"URTH\"]");
         List<String> symbols = SMAWorker.readTrackedSymbols(context);
         assertEquals(3, symbols.size());
         assertEquals("^GSPC", symbols.get(0));
-        assertEquals("^IXIC", symbols.get(1));
+        assertEquals("^NDX", symbols.get(1));
         assertEquals("URTH", symbols.get(2));
     }
 
     @Test
     public void testReadTrackedSymbols_dedupes() {
-        PrefsHelper.putString(context, PrefsHelper.KEY_TRACKED_INDEXES, "[\"^GSPC\",\"^GSPC\",\"^IXIC\"]");
+        PrefsHelper.putString(context, PrefsHelper.KEY_TRACKED_INDEXES, "[\"^GSPC\",\"^GSPC\",\"^NDX\"]");
         List<String> symbols = SMAWorker.readTrackedSymbols(context);
         assertEquals(2, symbols.size());
         assertEquals("^GSPC", symbols.get(0));
-        assertEquals("^IXIC", symbols.get(1));
+        assertEquals("^NDX", symbols.get(1));
     }
 
     @Test
     public void testReadTrackedSymbols_legacyFallback() {
         // No trackedIndexes present; fall back to the old single-index key.
-        PrefsHelper.putString(context, PrefsHelper.KEY_INDEX, "^IXIC");
+        PrefsHelper.putString(context, PrefsHelper.KEY_INDEX, "^NDX");
         List<String> symbols = SMAWorker.readTrackedSymbols(context);
         assertEquals(1, symbols.size());
-        assertEquals("^IXIC", symbols.get(0));
+        assertEquals("^NDX", symbols.get(0));
     }
 
     @Test
@@ -88,10 +88,10 @@ public class MultiIndexWorkerTest {
 
     @Test
     public void testReadNotifEnabled_parsesMap() {
-        PrefsHelper.putString(context, PrefsHelper.KEY_NOTIF_ENABLED, "{\"^GSPC\":true,\"^IXIC\":false}");
+        PrefsHelper.putString(context, PrefsHelper.KEY_NOTIF_ENABLED, "{\"^GSPC\":true,\"^NDX\":false}");
         JSONObject map = SMAWorker.readNotifEnabled(context);
         assertTrue(map.optBoolean("^GSPC", false));
-        assertFalse(map.optBoolean("^IXIC", true));
+        assertFalse(map.optBoolean("^NDX", true));
     }
 
     @Test
@@ -113,10 +113,10 @@ public class MultiIndexWorkerTest {
     @Test
     public void testPerIndexChangeDetection_isolatedPerSymbol() {
         PrefsHelper.putString(context, PrefsHelper.KEY_LAST_SIGNAL_PREFIX + "^GSPC", "BUY");
-        PrefsHelper.putString(context, PrefsHelper.KEY_LAST_SIGNAL_PREFIX + "^IXIC", "HOLD");
+        PrefsHelper.putString(context, PrefsHelper.KEY_LAST_SIGNAL_PREFIX + "^NDX", "HOLD");
 
         assertEquals("BUY", PrefsHelper.getString(context, PrefsHelper.KEY_LAST_SIGNAL_PREFIX + "^GSPC", ""));
-        assertEquals("HOLD", PrefsHelper.getString(context, PrefsHelper.KEY_LAST_SIGNAL_PREFIX + "^IXIC", ""));
+        assertEquals("HOLD", PrefsHelper.getString(context, PrefsHelper.KEY_LAST_SIGNAL_PREFIX + "^NDX", ""));
         // A symbol that has never been seen has an empty last signal.
         assertEquals("", PrefsHelper.getString(context, PrefsHelper.KEY_LAST_SIGNAL_PREFIX + "URTH", ""));
     }
@@ -126,7 +126,7 @@ public class MultiIndexWorkerTest {
     @Test
     public void testDisplayName() {
         assertEquals("S&P 500", SMAWorker.displayName("^GSPC"));
-        assertEquals("NASDAQ Composite", SMAWorker.displayName("^IXIC"));
+        assertEquals("NASDAQ 100", SMAWorker.displayName("^NDX"));
         assertEquals("MSCI World", SMAWorker.displayName("URTH"));
         // Unknown symbol falls back to itself.
         assertEquals("QQQM", SMAWorker.displayName("QQQM"));
@@ -143,10 +143,10 @@ public class MultiIndexWorkerTest {
     public void testJoinLines_multiple() {
         List<String> lines = new ArrayList<>();
         lines.add("S&P 500: BUY (5.20%)");
-        lines.add("NASDAQ Composite: HOLD (1.10%)");
+        lines.add("NASDAQ 100: HOLD (1.10%)");
         lines.add("MSCI World: SELL (-4.30%)");
         assertEquals(
-                "S&P 500: BUY (5.20%)\nNASDAQ Composite: HOLD (1.10%)\nMSCI World: SELL (-4.30%)",
+                "S&P 500: BUY (5.20%)\nNASDAQ 100: HOLD (1.10%)\nMSCI World: SELL (-4.30%)",
                 SMAWorker.joinLines(lines));
     }
 
